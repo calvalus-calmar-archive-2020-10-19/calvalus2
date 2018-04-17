@@ -79,6 +79,7 @@ public class OrderL2ProductionView extends OrderProductionView {
 
         outputParametersForm = new OutputParametersForm(portalContext);
         quicklookParametersForm = new QuicklookParametersForm(portalContext);
+        outputParametersForm.setQuicklooksForm(quicklookParametersForm);
         l2ConfigForm.setProductSet(productSetSelectionForm.getSelectedProductSet());
         handleProcessorChanged();
 

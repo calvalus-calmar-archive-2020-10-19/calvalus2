@@ -90,6 +90,8 @@ public class OutputParametersForm extends Composite {
 
     static int radioGroupId;
 
+    private QuicklookParametersForm quicklookParametersForm = null;
+
     public OutputParametersForm(PortalContext portalContext) {
         initWidget(uiBinder.createAndBindUi(this));
 
@@ -286,11 +288,16 @@ public class OutputParametersForm extends Composite {
         }
     }
 
+    public void setQuicklooksForm(QuicklookParametersForm quicklookParametersForm) {
+        this.quicklookParametersForm = quicklookParametersForm;
+    }
+
     private void setComponentsEnabled(boolean enabled) {
         enableTailoring.setEnabled(enabled);
         setTailoringComponentsEnabled(enabled);
         outputFormat.setEnabled(enabled);
         autoStaging.setEnabled(enabled);
+        quicklookParametersForm.setInvisible(enabled);
     }
 
 

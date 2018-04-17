@@ -4,7 +4,7 @@
 
     <ui:style src="style.css"/>
 
-    <g:FlowPanel styleName="{style.quicklookPanel}">
+    <g:FlowPanel styleName="{style.quicklookPanel}" ui:field="quicklookPanel">
 
         <g:HTMLPanel styleName="{style.panelTitle}" width="100%">
             <g:InlineLabel styleName="{style.panelTitleText}">Quicklook</g:InlineLabel>

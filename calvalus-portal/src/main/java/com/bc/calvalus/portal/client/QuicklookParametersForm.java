@@ -21,6 +21,7 @@ import com.google.gwt.event.logical.shared.ValueChangeEvent;
 import com.google.gwt.event.logical.shared.ValueChangeHandler;
 import com.google.gwt.uibinder.client.UiBinder;
 import com.google.gwt.uibinder.client.UiField;
+import com.google.gwt.user.client.ui.FlowPanel;
 import com.google.gwt.user.client.ui.CheckBox;
 import com.google.gwt.user.client.ui.Composite;
 import com.google.gwt.user.client.ui.IntegerBox;
@@ -47,6 +48,9 @@ public class QuicklookParametersForm extends Composite {
     }
 
     private static TheUiBinder uiBinder = GWT.create(TheUiBinder.class);
+
+    @UiField
+    FlowPanel quicklookPanel;
 
     @UiField
     RadioButton quicklookNone;
@@ -266,6 +270,10 @@ public class QuicklookParametersForm extends Composite {
         }
 
         return parameters;
+    }
+
+    public void setInvisible(Boolean visible){
+        quicklookPanel.setVisible(visible);
     }
 
     public void setValues(Map<String, String> parameters) {
