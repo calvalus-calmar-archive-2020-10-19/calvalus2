@@ -18,14 +18,11 @@ package com.bc.calvalus.processing.analysis;
 
 import com.bc.calvalus.commons.CalvalusLogger;
 import org.apache.commons.io.IOUtils;
-import org.apache.hadoop.mapreduce.TaskAttemptContext;
-import org.esa.snap.core.datamodel.Product;
 
 import java.io.*;
-import java.net.Authenticator;
 import java.net.HttpURLConnection;
-import java.net.PasswordAuthentication;
 import java.net.URL;
+import java.util.Base64;
 import java.util.logging.Logger;
 
 /**
@@ -37,21 +34,15 @@ public class GeoServer {
 
     private static final Logger LOGGER = CalvalusLogger.getLogger();
 
-    private final TaskAttemptContext context;
-    private final Product sourceProduct;
     private final Quicklooks.QLConfig qlConfig;
+    private String basicAuth = "";
 
-    public GeoServer(TaskAttemptContext context, Product product, Quicklooks.QLConfig qlConfig) {
-        this.context = context;
-        this.sourceProduct = product;
+    public GeoServer(Quicklooks.QLConfig qlConfig) {
         this.qlConfig = qlConfig;
     }
 
     public void uploadImage(InputStream inputStream, String imageName) throws IOException {
-
-        String msg = String.format("Uploading product image '%s' to GeoServer.", imageName);
-        LOGGER.info(msg);
-
+        LOGGER.info(String.format("Uploading product image '%s.tiff' to GeoServer.", imageName));
         String geoserverRestURL = this.qlConfig.getGeoServerRestUrl();
         String username = this.qlConfig.getGeoServerUsername();
         String password = this.qlConfig.getGeoServerPassword();
@@ -74,32 +65,26 @@ public class GeoServer {
 
         if (store == null || store.isEmpty()) {
             store = imageName;
-        }
-        else {
+        } else {
             store.trim();
         }
 
         if (layer == null || layer.isEmpty()) {
             layer = imageName;
-        }
-        else {
+        } else {
             layer.trim();
         }
 
         if (username != null && !username.isEmpty() && password != null) {
-            Authenticator.setDefault(new Authenticator() {
-                protected PasswordAuthentication getPasswordAuthentication() {
-                    return new PasswordAuthentication(username, password.toCharArray());
-                }
-            });
+            String userpass = username + ":" + password;
+            this.basicAuth = "Basic " + new String(Base64.getEncoder().encode(userpass.getBytes()));
         }
 
         // other functionality for future (not required at present)
-        //getCoverageStore(geoserverURL, workspace, layerID);
-        //deleteCoverageStore(geoserverURL, workspace, layerID);
+        //getCoverageStore(geoserverRestURL, workspace, store);
+        //deleteCoverageStore(geoserverRestURL, workspace, store);
 
         putCoverageStoreSingleGeoTiff(inputStream, geoserverRestURL, workspace, store, layer);
-
         if (style != null && !style.isEmpty()) {
             putLayerStyle(geoserverRestURL, workspace, layer, style);
         }
@@ -108,123 +93,186 @@ public class GeoServer {
     /**
      * Get a coverage store named {storeName} in the {workspace} workspace
      *
-     * @param geoserverRestURL  the root URL to GeoServer
-     * @param workspace         the name of the workspace containing the coverage stores
-     * @param store             the name of the store to be retrieved
+     * @param geoserverRestURL the root URL to GeoServer
+     * @param workspace        the name of the workspace containing the coverage stores
+     * @param store            the name of the store to be retrieved
      */
-    public void getCoverageStore(String geoserverRestURL, String workspace, String store) throws IOException {
+    private void getCoverageStore(String geoserverRestURL, String workspace, String store) throws IOException {
         String getCoverageStoreURL = String.format("%s/workspaces/%s/coveragestores/%s", geoserverRestURL, workspace, store);
-        LOGGER.info("Getting GeoServer coverage store: " + getCoverageStoreURL);
-
-        URL url = new URL(getCoverageStoreURL);
-        HttpURLConnection conn = (HttpURLConnection) url.openConnection();
-        conn.setDoOutput(true);
-        conn.setInstanceFollowRedirects(false);
-        conn.setUseCaches(false);
-        conn.setRequestProperty("Content-Type", "application/xml");
-        conn.setRequestProperty("charset", "utf-8");
-        conn.setRequestMethod("GET");
-
-        int responseCode = conn.getResponseCode();
-        String responseMessage = conn.getResponseMessage();
-        LOGGER.info("GeoServer response: " + responseCode + ": " + responseMessage);
-        conn.disconnect();
+        HttpURLConnection conn = null;
+        try {
+            LOGGER.info(String.format("Getting coverage store '%s' in workspace '%s' on GeoServer...", store, workspace));
+            LOGGER.info(String.format("GeoServer URL: %s", getCoverageStoreURL));
+            URL url = new URL(getCoverageStoreURL);
+            conn = (HttpURLConnection) url.openConnection();
+            if (!this.basicAuth.isEmpty()) {
+                conn.setRequestProperty("Authorization", basicAuth);
+            }
+            conn.setDoOutput(true);
+            conn.setInstanceFollowRedirects(false);
+            conn.setUseCaches(false);
+            conn.setRequestProperty("Content-Type", "application/xml");
+            conn.setRequestProperty("charset", "utf-8");
+            logResponse(conn);
+            LOGGER.info(String.format("Finished getting coverage store '%s' in workspace '%s' on GeoServer", store, workspace));
+        } catch (IOException e) {
+            LOGGER.warning(String.format("GeoServer error: %s", e.getMessage()));
+            logResponse(conn, true);
+        } finally {
+            if (conn != null)
+                conn.disconnect();
+        }
     }
 
     /**
      * Delete a coverage store named {storeName} in the {workspace} workspace
      *
-     * @param geoserverRestURL  the root URL to GeoServer
-     * @param workspace         the name of the workspace containing the coverage stores
-     * @param store             the name of the store to be deleted
+     * @param geoserverRestURL the root URL to GeoServer
+     * @param workspace        the name of the workspace containing the coverage stores
+     * @param store            the name of the store to be deleted
      */
-    public void deleteCoverageStore(String geoserverRestURL, String workspace, String store) throws IOException {
-        String deleteCoverageStoreURL = String.format("%/workspaces/%s/coveragestores/%s?recurse=true&purge=all", geoserverRestURL, workspace, store);
-        LOGGER.info("Deleting GeoServer coverage store: " + deleteCoverageStoreURL);
-
-        URL url = new URL(deleteCoverageStoreURL);
-        HttpURLConnection conn = (HttpURLConnection) url.openConnection();
-        conn.setDoOutput(true);
-        conn.setInstanceFollowRedirects(false);
-        conn.setUseCaches(false);
-        //conn.setRequestProperty("Content-Type", "application/xml");
-        //conn.setRequestProperty("charset", "utf-8");
-        conn.setRequestMethod("DELETE");
-
-        int responseCode = conn.getResponseCode();
-        String responseMessage = conn.getResponseMessage();
-        LOGGER.info("GeoServer response: " + responseCode + ": " + responseMessage);
-        conn.disconnect();
+    private void deleteCoverageStore(String geoserverRestURL, String workspace, String store) throws IOException {
+        String deleteCoverageStoreURL = String.format("%s/workspaces/%s/coveragestores/%s?recurse=true&purge=all", geoserverRestURL, workspace, store);
+        HttpURLConnection conn = null;
+        try {
+            LOGGER.info(String.format("Deleting coverage store '%s' in workspace '%s' on GeoServer...", store, workspace));
+            LOGGER.info(String.format("GeoServer URL: %s", deleteCoverageStoreURL));
+            URL url = new URL(deleteCoverageStoreURL);
+            conn = (HttpURLConnection) url.openConnection();
+            if (!this.basicAuth.isEmpty()) {
+                conn.setRequestProperty("Authorization", basicAuth);
+            }
+            conn.setDoOutput(true);
+            conn.setInstanceFollowRedirects(false);
+            conn.setUseCaches(false);
+            conn.setRequestMethod("DELETE");
+            logResponse(conn);
+            LOGGER.info(String.format("Finished deleting coverage store '%s' in workspace '%s' on GeoServer", store, workspace));
+        } catch (IOException e) {
+            LOGGER.warning(String.format("GeoServer error: %s", e.getMessage()));
+            logResponse(conn, true);
+        } finally {
+            if (conn != null)
+                conn.disconnect();
+        }
     }
 
     /**
      * Creates or overwrites a single coverage store by uploading its GeoTIFF raster data file
      *
-     * @param inputStream       an InputStream to the GeoTIFF for updating
-     * @param geoserverRestURL  the root URL to GeoServer
-     * @param workspace         the name of the workspace containing the coverage stores
-     * @param store             the name of the store to be created or overwritten
-     * @param layer             the name of the new layer
+     * @param inputStream      an InputStream to the GeoTIFF for upload
+     * @param geoserverRestURL the root URL to GeoServer
+     * @param workspace        the name of the workspace containing the coverage stores
+     * @param store            the name of the store to be created or overwritten
+     * @param layer            the name of the new layer
      */
-    public void putCoverageStoreSingleGeoTiff(InputStream inputStream, String geoserverRestURL, String workspace, String store, String layer) throws IOException {
+    private void putCoverageStoreSingleGeoTiff(InputStream inputStream, String geoserverRestURL, String workspace, String store, String layer) throws IOException {
         String putCoverageStoreURL = String.format("%s/workspaces/%s/coveragestores/%s/file.geotiff?coverageName=%s", geoserverRestURL, workspace, store, layer);
-        LOGGER.info("Uploading GeoTIFF to the GeoServer coverage store: " + putCoverageStoreURL);
-
         byte[] geoTiffPayload = IOUtils.toByteArray(inputStream);
-        LOGGER.info("GeoTIFF size (bytes): " + geoTiffPayload.length);
-
-        URL url = new URL(putCoverageStoreURL);
-        HttpURLConnection conn = (HttpURLConnection) url.openConnection();
-        conn.setDoInput(true);
-        conn.setDoOutput(true);
-        conn.setInstanceFollowRedirects(false);
-        conn.setUseCaches(false);
-        conn.setRequestProperty("Content-Type", "text/plain");
-        //conn.setRequestProperty("charset", "utf-8");
-        conn.setRequestMethod("PUT");
-
-        DataOutputStream out = new DataOutputStream(conn.getOutputStream());
-        out.write(geoTiffPayload);
-        out.flush();
-        out.close();
-
-        int responseCode = conn.getResponseCode();
-        String responseMessage = conn.getResponseMessage();
-        LOGGER.info("GeoServer response: " + responseCode + ": " + responseMessage);
-        conn.disconnect();
+        HttpURLConnection conn = null;
+        DataOutputStream out = null;
+        try {
+            LOGGER.info(String.format("Uploading geoTIFF layer '%s' to coverage store '%s' in workspace '%s' on GeoServer...", layer, store, workspace));
+            LOGGER.info(String.format("GeoServer URL: %s", putCoverageStoreURL));
+            LOGGER.info(String.format("GeoTIFF size (bytes): %d", geoTiffPayload.length));
+            URL url = new URL(putCoverageStoreURL);
+            conn = (HttpURLConnection) url.openConnection();
+            if (!this.basicAuth.isEmpty()) {
+                conn.setRequestProperty("Authorization", basicAuth);
+            }
+            conn.setDoInput(true);
+            conn.setDoOutput(true);
+            conn.setInstanceFollowRedirects(false);
+            conn.setUseCaches(false);
+            conn.setRequestProperty("Content-Type", "text/plain");
+            conn.setRequestMethod("PUT");
+            out = new DataOutputStream(conn.getOutputStream());
+            out.write(geoTiffPayload);
+            out.flush();
+            logResponse(conn);
+            LOGGER.info(String.format("Finished uploading geoTIFF layer '%s' to coverage store '%s' in workspace '%s' on GeoServer", layer, store, workspace));
+        } catch (IOException e) {
+            LOGGER.warning(String.format("GeoServer error: %s", e.getMessage()));
+            logResponse(conn, true);
+        } finally {
+            if (out != null)
+                out.close();
+            if (conn != null)
+                conn.disconnect();
+        }
     }
 
     /**
      * Modify a layer's style
      *
-     * @param geoserverRestURL  the root URL to GeoServer
-     * @param workspace         the name of the workspace containing the coverage stores
-     * @param layer             the name of the layer to modify
-     * @param style             the default style to use for this layer
+     * @param geoserverRestURL the root URL to GeoServer
+     * @param workspace        the name of the workspace containing the coverage stores
+     * @param layer            the name of the layer to modify
+     * @param style            the default style to use for this layer
      */
-    public void putLayerStyle(String geoserverRestURL, String workspace, String layer, String style) throws IOException {
+    private void putLayerStyle(String geoserverRestURL, String workspace, String layer, String style) throws IOException {
         String payload = "<layer><defaultStyle><name>" + style + "</name></defaultStyle></layer>";
         String uploadStyleURL = String.format("%s/workspaces/%s/layers/%s", geoserverRestURL, workspace, layer);
-        LOGGER.info("Updating layer style to '" + style + "': " + uploadStyleURL);
+        HttpURLConnection conn = null;
+        DataOutputStream out = null;
+        try {
+            LOGGER.info(String.format("Updating layer '%s' to named style '%s' in workspace '%s' on GeoServer", layer, style, workspace));
+            LOGGER.info(String.format("GeoServer URL: %s", uploadStyleURL));
+            URL url = new URL(uploadStyleURL);
+            conn = (HttpURLConnection) url.openConnection();
+            if (!this.basicAuth.isEmpty()) {
+                conn.setRequestProperty("Authorization", basicAuth);
+            }
+            conn.setDoInput(true);
+            conn.setDoOutput(true);
+            conn.setInstanceFollowRedirects(false);
+            conn.setUseCaches(false);
+            conn.setRequestProperty("Content-Type", "application/xml");
+            conn.setRequestMethod("PUT");
+            out = new DataOutputStream(conn.getOutputStream());
+            out.writeBytes(payload);
+            out.flush();
+            logResponse(conn);
+            LOGGER.info(String.format("Finished updating layer '%s' to named style '%s' in workspace '%s' on GeoServer", layer, style, workspace));
+        } catch (IOException e) {
+            LOGGER.warning(String.format("GeoServer error: %s", e.getMessage()));
+            logResponse(conn, true);
+        } finally {
+            if (out != null)
+                out.close();
+            if (conn != null)
+                conn.disconnect();
+        }
+    }
 
-        URL url = new URL(uploadStyleURL);
-        HttpURLConnection conn = (HttpURLConnection) url.openConnection();
-        conn.setDoInput(true);
-        conn.setDoOutput(true);
-        conn.setInstanceFollowRedirects(false);
-        conn.setUseCaches(false);
-        conn.setRequestProperty("Content-Type", "application/xml");
-        //conn.setRequestProperty("charset", "utf-8");
-        conn.setRequestMethod("PUT");
+    private void logResponse(HttpURLConnection conn) throws IOException {
+        logResponse(conn, false);
+    }
 
-        DataOutputStream out = new DataOutputStream(conn.getOutputStream());
-        out.writeBytes(payload);
-        out.flush();
-        out.close();
+    private void logResponse(HttpURLConnection conn, boolean exception) throws IOException {
+        InputStream inputStream = null;
+        try {
+            int responseCode = conn.getResponseCode();
+            if (exception) {
+                inputStream = conn.getErrorStream();
+            } else {
+                inputStream = conn.getInputStream();
+            }
 
-        int responseCode = conn.getResponseCode();
-        String responseMessage = conn.getResponseMessage();
-        LOGGER.info("GeoServer response: " + responseCode + ": " + responseMessage);
-        conn.disconnect();
+            if (inputStream != null) {
+                ByteArrayOutputStream response = new ByteArrayOutputStream();
+                byte[] buffer = new byte[1024];
+                int length;
+                while ((length = inputStream.read(buffer)) != -1) {
+                    response.write(buffer, 0, length);
+                }
+                LOGGER.info(String.format("GeoServer HTTP response code: %d", responseCode));
+                LOGGER.info(String.format("GeoServer HTTP response message: %s", response.toString()));
+            }
+        } finally {
+            if (inputStream != null) {
+                inputStream.close();
+            }
+        }
     }
 }

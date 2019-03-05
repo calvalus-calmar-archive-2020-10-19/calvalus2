@@ -92,7 +92,7 @@ public class QLMapper extends Mapper<NullWritable, NullWritable, NullWritable, N
                     createQuicklook(product, imageBaseName, context, config);
                     if( config.getGeoServerRestUrl() != null ) {
                         // upload geoTiff to GeoServer
-                        GeoServer geoserver = new GeoServer(context, product, config);
+                        GeoServer geoserver = new GeoServer(config);
                         String imageFilename = QLMapper.getImageFileName(imageBaseName, config);
                         InputStream inputStream = QLMapper.createInputStream(context, imageFilename);
                         geoserver.uploadImage(inputStream, imageBaseName);

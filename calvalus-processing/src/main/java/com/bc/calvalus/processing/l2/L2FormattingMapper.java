@@ -186,7 +186,7 @@ public class L2FormattingMapper extends Mapper<NullWritable, NullWritable, NullW
             if( qlConfig.getGeoServerRestUrl() != null ) {
                 // upload geoTiff to GeoServer
                 try {
-                    GeoServer geoserver = new GeoServer(context, targetProduct, qlConfig);
+                    GeoServer geoserver = new GeoServer(qlConfig);
                     String imageFilename = QLMapper.getImageFileName(imageBaseName, qlConfig);
                     InputStream inputStream = QLMapper.createInputStream(context, imageFilename);
                     geoserver.uploadImage(inputStream, imageBaseName);
