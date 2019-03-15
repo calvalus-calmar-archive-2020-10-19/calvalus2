@@ -192,5 +192,62 @@ cp -r /home/cvop/calbfg-patch/* webapps/calbfg
 rm -rf webapps/calbfg/staging/
 mv temp/staging webapps/calbfg/
 
+===========================================================================
+GeoServer deployment
+----------------------------
+Please refer to this page for deploying GeoServer as a web archive:
+https://docs.geoserver.org/latest/en/user/installation/war.html
+
+For example, with Tomcat running on port 8080 on localhost, the URL is http://localhost:8080/geoserver.
+
+* Please note GeoServer requires a Java 8 environment and that Tomcat (7.0.65 or later) is recommended.
+
+GeoServer security
+----------------------------
+The default GeoServer administration username/password is: admin/geoserver.
+It is recommended to change these administration credentials, and also add new users and roles as required.
+
+Please refer to this page for more information on the security subsystem in GeoServer:
+https://docs.geoserver.org/latest/en/user/security/
+
+GeoServer data directory
+----------------------------
+For web archive deployments, the built-in data directory is located in webapps under geoserver/data. But it is a good
+idea to separate the data from the application. Using an external data directory allows for much easier upgrades, etc.
+
+The data directory can be set in WEB-INF/web.xml, using a servlet context parameter named GEOSERVER_DATA_DIR.
+
+Please refer to this page for more information on setting the data directory location:
+https://docs.geoserver.org/latest/en/user/datadirectory/setting.html
+
+GeoServer data management
+----------------------------
+Data in GeoServer is organised into workspaces, stores, and layers.
+
+Please refer to the following documentation for more information:
+
+Workspaces: https://docs.geoserver.org/latest/en/user/data/webadmin/workspaces.html
+Stores: https://docs.geoserver.org/latest/en/user/data/webadmin/stores.html
+Layers: https://docs.geoserver.org/latest/en/user/data/webadmin/layers.html
+Layer Groups: https://docs.geoserver.org/latest/en/user/data/webadmin/layergroups.html
+
+GeoServer - Calvalus support
+----------------------------
+Calvalus supports the publishing of GeoTIFF images to GeoServer using the Quicklooks feature.
+The Calvalus administrator needs to configure these GeoServer Quicklook settings.
+
+REST URL (M):  GeoServer REST URL (e.g. http://localhost:8080/geoserver/rest/)
+username (M):  GeoServer username (e.g. admin)
+password (M):  GeoServer password (e.g. geoserver)
+workspace (O): GeoServer workspace to use. If not set, it will use the default GeoServer workspace.
+               The default GeoServer workspace can set by the GeoServer administrator.
+store (O):     GeoServer data store name to use. Defaults to the Calvalus product name.
+               Any existing data store with this name within the workspace is replaced.
+layer (O):     GeoServer layer name to use. Defaults to the Calvalus product name.
+               Any existing layer with this name within the workspace is replaced.
+style (O):     GeoServer style name to use. Defaults to the GeoServer's 'raster' style.
+
+(M) = mandatory
+(O) = optional
 
 
