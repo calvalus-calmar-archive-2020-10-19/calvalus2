@@ -34,6 +34,7 @@ import org.esa.snap.core.datamodel.GeoCoding;
 import org.esa.snap.core.datamodel.GeoPos;
 import org.esa.snap.core.datamodel.PixelPos;
 import org.esa.snap.core.datamodel.Product;
+import org.esa.snap.core.gpf.GPF;
 import org.esa.snap.core.util.io.FileUtils;
 import org.geotools.coverage.grid.GridCoverage2D;
 import org.geotools.coverage.grid.GridCoverageFactory;
@@ -54,6 +55,8 @@ import java.io.BufferedOutputStream;
 import java.io.InputStream;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.logging.Logger;
 
 /**
@@ -92,7 +95,7 @@ public class QLMapper extends Mapper<NullWritable, NullWritable, NullWritable, N
                     createQuicklook(product, imageBaseName, context, config);
                     if( config.getGeoServerRestUrl() != null ) {
                         // upload geoTiff to GeoServer
-                        GeoServer geoserver = new GeoServer(context, product, config);
+                        GeoServer geoserver = new GeoServer(config);
                         String imageFilename = QLMapper.getImageFileName(imageBaseName, config);
                         InputStream inputStream = QLMapper.createInputStream(context, imageFilename);
                         geoserver.uploadImage(inputStream, imageBaseName);
@@ -108,14 +111,16 @@ public class QLMapper extends Mapper<NullWritable, NullWritable, NullWritable, N
     public static void createQuicklook(Product product, String imageBaseName, Mapper.Context context,
                                        Quicklooks.QLConfig config) throws IOException, InterruptedException {
 //        try {
+            RenderedImage quicklookImage = null;
             String imageFileName = getImageFileName(imageBaseName, config);
-            RenderedImage quicklookImage = new QuicklookGenerator(context, product, config).createImage();
-            if (quicklookImage != null) {
-                if( isGeoTiff(config)) {
-                    OutputStream outputStream = createOutputStream(context, imageFileName);
-                    LOGGER.info("outputStream: " + outputStream.toString());
-                    OutputStream pmOutputStream = new BytesCountingOutputStream(outputStream, context);
-
+            if( isGeoTiff(config)) {
+                // for geoTiff, we will force EPSG:4326 projection
+                Map<String, Object> reprojParams = new HashMap<String, Object>();
+                reprojParams.put("crs", "EPSG:4326");
+                //reprojParams.put("noDataValue", 0d);
+                product = GPF.createProduct("Reproject", reprojParams, product);
+                quicklookImage = new QuicklookGenerator(context, product, config).createImage();
+                if (quicklookImage != null) {
                     final int width = product.getSceneRasterWidth();
                     final int height = product.getSceneRasterHeight();
                     final GeoCoding geoCoding = product.getSceneGeoCoding();
@@ -123,7 +128,6 @@ public class QLMapper extends Mapper<NullWritable, NullWritable, NullWritable, N
                     final GeoPos geoPosA = geoCoding.getGeoPos(posA, null);
                     final PixelPos posB = new org.esa.snap.core.datamodel.PixelPos(width, height);
                     final GeoPos geoPosB = geoCoding.getGeoPos(posB, null);
-
                     final GeoTiffFormat format = new GeoTiffFormat();
                     final GeoTiffWriteParams wp = new GeoTiffWriteParams();
                     //wp.setCompressionMode(GeoTiffWriteParams.MODE_EXPLICIT);
@@ -134,6 +138,9 @@ public class QLMapper extends Mapper<NullWritable, NullWritable, NullWritable, N
                     final ParameterValueGroup params = format.getWriteParameters();
                     params.parameter(AbstractGridFormat.GEOTOOLS_WRITE_PARAMS.getName().toString()).setValue(wp);
 
+                    OutputStream outputStream = createOutputStream(context, imageFileName);
+                    LOGGER.info("outputStream: " + outputStream.toString());
+                    OutputStream pmOutputStream = new BytesCountingOutputStream(outputStream, context);
                     try {
                         ReferencedEnvelope envelope =
                                 new ReferencedEnvelope(
@@ -150,7 +157,9 @@ public class QLMapper extends Mapper<NullWritable, NullWritable, NullWritable, N
                         outputStream.close();
                     }
                 }
-                else {
+            } else {
+                quicklookImage = new QuicklookGenerator(context, product, config).createImage();
+                if (quicklookImage != null) {
                     OutputStream outputStream = createOutputStream(context, imageFileName);
                     LOGGER.info("outputStream: " + outputStream.toString());
                     OutputStream pmOutputStream = new BytesCountingOutputStream(outputStream, context);
