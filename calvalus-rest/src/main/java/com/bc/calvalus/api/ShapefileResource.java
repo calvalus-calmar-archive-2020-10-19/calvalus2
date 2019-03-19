@@ -19,6 +19,7 @@ import javax.ws.rs.PathParam;
 import javax.ws.rs.Produces;
 import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.core.Context;
+import javax.ws.rs.core.GenericEntity;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.SecurityContext;
@@ -39,15 +40,16 @@ public class ShapefileResource {
 
     @GET
     @Produces({MediaType.APPLICATION_JSON, MediaType.APPLICATION_XML, MediaType.TEXT_XML, MediaType.TEXT_PLAIN})
-    public Response listShapefiles(@Context HttpServletRequest request, @Context SecurityContext securityContext, @Context ServletContext context) throws NotFoundException {
+    public Response list(@Context HttpServletRequest request, @Context SecurityContext securityContext, @Context ServletContext context) throws NotFoundException {
 
         String userName = request.getUserPrincipal().getName();
 
         Response response;
         try {
             ShapefileModel shapefileModel = ShapefileModel.getInstance(context);
-            List<ShapefileEntry> shapefileList = shapefileModel.getShapefiles(userName);
-            response = Response.ok(shapefileList).header("X-Total-Count", shapefileList.size()).build();
+            GenericEntity<List<ShapefileEntry>> shapefileList = new GenericEntity<List<ShapefileEntry>>(shapefileModel.getShapefiles(userName)) {};
+            int count = shapefileList.getEntity().size();
+            response = Response.ok(shapefileList).header("X-Total-Count", count).build();
         } catch (IOException | ProductionException | ServletException e) {
             LOG.log(Level.WARNING, e.getMessage(), e);
             throw new WebApplicationException(e,
@@ -61,7 +63,7 @@ public class ShapefileResource {
 
 
     @POST
-    @Consumes({MediaType.APPLICATION_OCTET_STREAM})
+    @Consumes({MediaType.MULTIPART_FORM_DATA})
     public Response upload(@Context HttpServletRequest request, @Context UriInfo uriInfo, @Context ServletContext context) throws NotFoundException {
         try {
             String userName = request.getUserPrincipal().getName();
@@ -71,7 +73,7 @@ public class ShapefileResource {
             ShapefileModel shapefileModel = ShapefileModel.getInstance(context);
             String shapefilePath = getShapefilePath(userName, filename, shapefileModel);
             // delete existing shapefile before upload
-            if (shapefileModel.pathExists(shapefilePath)) {
+            if (shapefileModel.pathExists(userName, shapefilePath)) {
                 LOG.info("replacing shapefile '" + shapefileName + "'");
                 removeSafe(userName, shapefileName, shapefileModel, shapefilePath);
             } else {
@@ -99,8 +101,8 @@ public class ShapefileResource {
             if (fileStatus == null) {
                 throw new WebApplicationException(Response.status(Response.Status.NOT_FOUND).build());
             }
-            return new FileEntry(fileStatus.getPath().getName(), fileStatus.getOwner(), new Date(fileStatus.getModificationTime()), fileStatus.getLen());
-        } catch (WebApplicationException e) {
+        return new FileEntry(fileStatus.getPath().getName(), fileStatus.getOwner(), new Date(fileStatus.getModificationTime()), fileStatus.getLen());
+    } catch (WebApplicationException e) {
             throw e;
         } catch (Exception e) {
             throw new WebApplicationException(e, Response.status(Response.Status.INTERNAL_SERVER_ERROR)
@@ -123,7 +125,7 @@ public class ShapefileResource {
     }
 
     private static String getShapefilePath(String username, String filename, ShapefileModel shapefileModel) {
-        return shapefileModel.getUserPath(username, "shapefiles/" + filename);
+        return shapefileModel.getUserPath(username, ShapefileModel.REGION_DATA_DIR + "/" + filename);
     }
 
     private static void removeSafe(String username, String shapefileName, ShapefileModel shapefileModel, String shapefilePath) {
