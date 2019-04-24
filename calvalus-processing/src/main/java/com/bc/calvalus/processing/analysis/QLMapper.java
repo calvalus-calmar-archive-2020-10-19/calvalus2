@@ -93,12 +93,25 @@ public class QLMapper extends Mapper<NullWritable, NullWritable, NullWritable, N
                         imageBaseName = productName + "_" + config.getBandName();
                     }
                     createQuicklook(product, imageBaseName, context, config);
-                    if( config.getGeoServerRestUrl() != null ) {
-                        // upload geoTiff to GeoServer
-                        GeoServer geoserver = new GeoServer(config);
-                        String imageFilename = QLMapper.getImageFileName(imageBaseName, config);
-                        InputStream inputStream = QLMapper.createInputStream(context, imageFilename);
-                        geoserver.uploadImage(inputStream, imageBaseName);
+                    final String qlUploadHandler = context.getConfiguration().get(JobConfigNames.CALVALUS_QUICKLOOK_UPLOAD_HANDLER);
+
+                    if (config.isWmsEnabled()) {
+                        if (qlUploadHandler == null || qlUploadHandler.isEmpty()) {
+                            LOGGER.warning("No Quicklook upload handler configured");
+                        } else if (qlUploadHandler.equalsIgnoreCase("geoserver")) {
+                            if (isGeoTiff(config)) {
+                                // upload geoTiff to GeoServer
+                                LOGGER.info(String.format("Quicklook upload handler: %s", qlUploadHandler));
+                                GeoServer geoserver = new GeoServer(context);
+                                String imageFilename = QLMapper.getImageFileName(imageBaseName, config);
+                                InputStream inputStream = QLMapper.createInputStream(context, imageFilename);
+                                geoserver.uploadImage(inputStream, imageBaseName);
+                            } else {
+                                LOGGER.warning(String.format("Quicklook image format '%s' not supported for GeoServer upload. Please use GeoTIFF instead.", config.getImageType()));
+                            }
+                        } else {
+                            LOGGER.warning(String.format("Unknown Quicklook upload handler: %s", qlUploadHandler));
+                        }
                     }
                 }
             }

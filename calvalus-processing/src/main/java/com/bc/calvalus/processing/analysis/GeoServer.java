@@ -17,7 +17,9 @@
 package com.bc.calvalus.processing.analysis;
 
 import com.bc.calvalus.commons.CalvalusLogger;
+import com.bc.calvalus.processing.JobConfigNames;
 import org.apache.commons.io.IOUtils;
+import org.apache.hadoop.mapreduce.TaskAttemptContext;
 
 import java.io.*;
 import java.net.HttpURLConnection;
@@ -34,23 +36,17 @@ public class GeoServer {
 
     private static final Logger LOGGER = CalvalusLogger.getLogger();
 
-    private final Quicklooks.QLConfig qlConfig;
+    private final TaskAttemptContext context;
     private String basicAuth = "";
 
-    public GeoServer(Quicklooks.QLConfig qlConfig) {
-        this.qlConfig = qlConfig;
+    public GeoServer(TaskAttemptContext context ) {
+        this.context = context;
     }
 
     public void uploadImage(InputStream inputStream, String imageName) throws IOException {
         LOGGER.info(String.format("Uploading product image '%s.tiff' to GeoServer.", imageName));
-        String geoserverRestURL = this.qlConfig.getGeoServerRestUrl();
-        String username = this.qlConfig.getGeoServerUsername();
-        String password = this.qlConfig.getGeoServerPassword();
-        String workspace = this.qlConfig.getGeoServerWorkspace();
-        String store = this.qlConfig.getGeoServerStore();
-        String layer = this.qlConfig.getGeoServerLayer();
-        String style = this.qlConfig.getGeoServerStyle();
 
+        String geoserverRestURL = context.getConfiguration().get(JobConfigNames.CALVALUS_QUICKLOOK_UPLOAD_URL);
         if (geoserverRestURL == null || geoserverRestURL.isEmpty()) {
             throw new IllegalArgumentException("geoserverRestURL is empty");
         }
@@ -59,35 +55,27 @@ public class GeoServer {
             geoserverRestURL = geoserverRestURL.substring(0, geoserverRestURL.length() - 1);
         }
 
-        if (workspace == null || workspace.isEmpty()) {
-            throw new IllegalArgumentException("workspace is empty");
-        }
-
-        if (store == null || store.isEmpty()) {
-            store = imageName;
-        } else {
-            store.trim();
-        }
-
-        if (layer == null || layer.isEmpty()) {
-            layer = imageName;
-        } else {
-            layer.trim();
-        }
-
+        String username = context.getConfiguration().get(JobConfigNames.CALVALUS_QUICKLOOK_UPLOAD_USERNAME);
+        String password = context.getConfiguration().get(JobConfigNames.CALVALUS_QUICKLOOK_UPLOAD_PASSWORD);
         if (username != null && !username.isEmpty() && password != null) {
             String userpass = username + ":" + password;
             this.basicAuth = "Basic " + new String(Base64.getEncoder().encode(userpass.getBytes()));
         }
 
+        String workspace = context.getConfiguration().get(JobConfigNames.CALVALUS_QUICKLOOK_UPLOAD_WORKSPACE);
+        if (workspace == null || workspace.isEmpty()) {
+            throw new IllegalArgumentException("workspace is empty");
+        }
+
+        String store = imageName;
+        String layer = imageName;
+
         // other functionality for future (not required at present)
         //getCoverageStore(geoserverRestURL, workspace, store);
         //deleteCoverageStore(geoserverRestURL, workspace, store);
+        //putLayerStyle(geoserverRestURL, workspace, layer, style);
 
         putCoverageStoreSingleGeoTiff(inputStream, geoserverRestURL, workspace, store, layer);
-        if (style != null && !style.isEmpty()) {
-            putLayerStyle(geoserverRestURL, workspace, layer, style);
-        }
     }
 
     /**

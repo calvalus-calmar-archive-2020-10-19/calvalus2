@@ -183,16 +183,29 @@ public class L2FormattingMapper extends Mapper<NullWritable, NullWritable, NullW
                 LOG.log(Level.WARNING, msg, e);
             }
 
-            if( qlConfig.getGeoServerRestUrl() != null ) {
-                // upload geoTiff to GeoServer
-                try {
-                    GeoServer geoserver = new GeoServer(qlConfig);
-                    String imageFilename = QLMapper.getImageFileName(imageBaseName, qlConfig);
-                    InputStream inputStream = QLMapper.createInputStream(context, imageFilename);
-                    geoserver.uploadImage(inputStream, imageBaseName);
-                } catch (Exception e) {
-                    String msg = String.format("Could not upload quicklook image '%s' to GeoServer.", qlConfig.getBandName());
-                    LOG.log(Level.WARNING, msg, e);
+            final String qlUploadHandler = context.getConfiguration().get(JobConfigNames.CALVALUS_QUICKLOOK_UPLOAD_HANDLER);
+            if (qlConfig.isWmsEnabled()) {
+                if (qlUploadHandler == null || qlUploadHandler.isEmpty()) {
+                    LOG.warning("No Quicklook upload handler configured");
+                }
+                else if (qlUploadHandler.equalsIgnoreCase("geoserver")) {
+                    if ("geotiff".equalsIgnoreCase(qlConfig.getImageType())) {
+                        // upload geoTiff to GeoServer
+                        try {
+                            LOG.info(String.format("Quicklook upload handler: %s", qlUploadHandler));
+                            GeoServer geoserver = new GeoServer(context);
+                            String imageFilename = QLMapper.getImageFileName(imageBaseName, qlConfig);
+                            InputStream inputStream = QLMapper.createInputStream(context, imageFilename);
+                            geoserver.uploadImage(inputStream, imageBaseName);
+                        } catch (Exception e) {
+                            String msg = String.format("Could not upload quicklook image '%s' to GeoServer.", qlConfig.getBandName());
+                            LOG.log(Level.WARNING, msg, e);
+                        }
+                    } else {
+                        LOG.warning(String.format("Quicklook image format '%s' not supported for GeoServer upload. Please use GeoTIFF instead.", qlConfig.getImageType()));
+                    }
+                } else {
+                    LOG.warning(String.format("Unknown Quicklook upload handler: %s", qlUploadHandler));
                 }
             }
         }

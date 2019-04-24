@@ -72,7 +72,7 @@ public class QuicklookParametersForm extends Composite {
     @UiField
     HTMLPanel moreOptionsPanel;
     @UiField
-    HTMLPanel geoServerPanel;
+    HTMLPanel wmsPanel;
 
     @UiField
     RadioButton quicklookNone;
@@ -119,27 +119,15 @@ public class QuicklookParametersForm extends Composite {
     CheckBox legendEnabled;
 
     @UiField
-    TextBox geoServerRestUrl;
-    @UiField
-    TextBox geoServerUsername;
-    @UiField
-    TextBox geoServerPassword;
-    @UiField
-    TextBox geoServerWorkspace;
-    @UiField
-    TextBox geoServerStore;
-    @UiField
-    TextBox geoServerLayer;
-    @UiField
-    TextBox geoServerStyle;
+    CheckBox wmsEnabled;
 
     private DtoColorPalette[] availableColorPalettes = null;
     private Boolean pageLoaded = false;
     private String[] availableBandNames = null;
+    private Boolean wmsAvailable;
 
     public QuicklookParametersForm(PortalContext portalContext) {
         this.portal = portalContext;
-
         initWidget(uiBinder.createAndBindUi(this));
 
         instanceCounter++;
@@ -190,6 +178,14 @@ public class QuicklookParametersForm extends Composite {
 
         setAvailableImageTypes();
         setColorPalettes();
+
+        if (portalContext.withPortalFeature("ql.wms")) {
+            wmsAvailable = true;
+        }
+        else {
+            wmsAvailable = false;
+            wmsPanel.setVisible(false);
+        }
     }
 
     @Override
@@ -254,14 +250,18 @@ public class QuicklookParametersForm extends Composite {
         singleBandPanel.setVisible(false);
         multiBandPanel.setVisible(false);
         moreOptionsPanel.setVisible(false);
-        geoServerPanel.setVisible(false);
+        if( wmsAvailable ) {
+            wmsPanel.setVisible(false);
+        }
     }
 
     private void quicklookSingleBandChangeHandler() {
         singleBandPanel.setVisible(true);
         multiBandPanel.setVisible(false);
         moreOptionsPanel.setVisible(true);
-        geoServerPanel.setVisible(true);
+        if( wmsAvailable ) {
+            wmsPanel.setVisible(true);
+        }
         bandNameChangeHandler();
     }
 
@@ -269,10 +269,12 @@ public class QuicklookParametersForm extends Composite {
         singleBandPanel.setVisible(false);
         multiBandPanel.setVisible(true);
         moreOptionsPanel.setVisible(true);
-        geoServerPanel.setVisible(true);
+        if( wmsAvailable ) {
+            wmsPanel.setVisible(true);
+        }
     }
 
-    public void setAvailableImageTypes() {
+    private void setAvailableImageTypes() {
         String[] imageNames = {"jpeg", "png", "tiff", "geotiff"};
         int selectedIndex = imageType.getSelectedIndex();
         imageType.clear();
@@ -369,54 +371,11 @@ public class QuicklookParametersForm extends Composite {
             legendEnabledXML = indentXML + "<legendEnabled>true</legendEnabled>\n";
         }
 
-        // GeoServer section...
-        // geoServerRestUrl
-        String geoServerRestUrlValue = geoServerRestUrl.getValue();
-        String geoServerRestUrlXML = "";
-        if (geoServerRestUrlValue != null && !geoServerRestUrlValue.isEmpty()) {
-            geoServerRestUrlXML = indentXML + "<geoServerRestUrl>" + geoServerRestUrlValue + "</geoServerRestUrl>\n";
-        }
-
-        // geoServerUsername
-        String geoServerUsernameValue = geoServerUsername.getValue();
-        String geoServerUsernameXML = "";
-        if (geoServerUsernameValue != null && !geoServerUsernameValue.isEmpty()) {
-            geoServerUsernameXML = indentXML + "<geoServerUsername>" + geoServerUsernameValue + "</geoServerUsername>\n";
-        }
-
-        // geoServerPassword
-        String geoServerPasswordValue = geoServerPassword.getValue();
-        String geoServerPasswordXML = "";
-        if (geoServerPasswordValue != null && !geoServerPasswordValue.isEmpty()) {
-            geoServerPasswordXML = indentXML + "<geoServerPassword>" + geoServerPasswordValue + "</geoServerPassword>\n";
-        }
-
-        // geoServerWorkspace
-        String geoServerWorkspaceValue = geoServerWorkspace.getValue();
-        String geoServerWorkspaceXML = "";
-        if (geoServerWorkspaceValue != null && !geoServerWorkspaceValue.isEmpty()) {
-            geoServerWorkspaceXML = indentXML + "<geoServerWorkspace>" + geoServerWorkspaceValue + "</geoServerWorkspace>\n";
-        }
-
-        // geoServerStore
-        String geoServerStoreValue = geoServerStore.getValue();
-        String geoServerStoreXML = "";
-        if (geoServerStoreValue != null && !geoServerStoreValue.isEmpty()) {
-            geoServerStoreXML = indentXML + "<geoServerStore>" + geoServerStoreValue + "</geoServerStore>\n";
-        }
-
-        // geoServerLayer
-        String geoServerLayerValue = geoServerLayer.getValue();
-        String geoServerLayerXML = "";
-        if (geoServerLayerValue != null && !geoServerLayerValue.isEmpty()) {
-            geoServerLayerXML = indentXML + "<geoServerLayer>" + geoServerLayerValue + "</geoServerLayer>\n";
-        }
-
-        // geoServerStyle
-        String geoServerStyleValue = geoServerStyle.getValue();
-        String geoServerStyleXML = "";
-        if (geoServerStyleValue != null && !geoServerStyleValue.isEmpty()) {
-            geoServerStyleXML = indentXML + "<geoServerStyle>" + geoServerStyleValue + "</geoServerStyle>\n";
+        // wmsEnabled
+        Boolean wmsEnabledValue = wmsEnabled.getValue();
+        String wmsEnabledXML = "";
+        if (wmsEnabledValue) {
+            wmsEnabledXML = indentXML + "<wmsEnabled>true</wmsEnabled>\n";
         }
 
         String quicklookParameters = "";
@@ -448,13 +407,7 @@ public class QuicklookParametersForm extends Composite {
                     subSamplingYXML +
                     backgroundColorXML +
                     legendEnabledXML +
-                    geoServerRestUrlXML +
-                    geoServerUsernameXML +
-                    geoServerPasswordXML +
-                    geoServerWorkspaceXML +
-                    geoServerStoreXML +
-                    geoServerLayerXML +
-                    geoServerStyleXML +
+                    wmsEnabledXML +
                     "    </config>\n" +
                     "  </quicklooks>\n" +
                     "</parameters>";
@@ -509,13 +462,7 @@ public class QuicklookParametersForm extends Composite {
                     subSamplingYXML +
                     backgroundColorXML +
                     legendEnabledXML +
-                    geoServerRestUrlXML +
-                    geoServerUsernameXML +
-                    geoServerPasswordXML +
-                    geoServerWorkspaceXML +
-                    geoServerStoreXML +
-                    geoServerLayerXML +
-                    geoServerStyleXML +
+                    wmsEnabledXML +
                     "    </config>\n" +
                     "  </quicklooks>\n" +
                     "</parameters>";
@@ -550,13 +497,7 @@ public class QuicklookParametersForm extends Composite {
             maskOverlays.setValue(null);
             legendEnabled.setValue(false);
 
-            geoServerRestUrl.setValue(null);
-            geoServerUsername.setValue(null);
-            geoServerPassword.setValue(null);
-            geoServerWorkspace.setValue(null);
-            geoServerStore.setValue(null);
-            geoServerLayer.setValue(null);
-            geoServerStyle.setValue(null);
+            wmsEnabled.setValue(false);
 
             // set no quicklook radio button in GUI
             quicklookNone.setValue(true, true);
@@ -664,33 +605,12 @@ public class QuicklookParametersForm extends Composite {
             else
                 legendEnabled.setValue(false);
 
-            // geoServerRestUrl
-            String geoServerRestUrlValue = getTagValue(dom, "geoServerRestUrl");
-            geoServerRestUrl.setValue(geoServerRestUrlValue);
-
-            // geoServerUsername
-            String geoServerUsernameValue = getTagValue(dom, "geoServerUsername");
-            geoServerUsername.setValue(geoServerUsernameValue);
-
-            // geoServerPassword
-            String geoServerPasswordValue = getTagValue(dom, "geoServerPassword");
-            geoServerPassword.setValue(geoServerPasswordValue);
-
-            // geoServerWorkspace
-            String geoServerWorkspaceValue = getTagValue(dom, "geoServerWorkspace");
-            geoServerWorkspace.setValue(geoServerWorkspaceValue);
-
-            // geoServerStore
-            String geoServerStoreValue = getTagValue(dom, "geoServerStore");
-            geoServerStore.setValue(geoServerStoreValue);
-
-            // geoServerLayer
-            String geoServerLayerValue = getTagValue(dom, "geoServerLayer");
-            geoServerLayer.setValue(geoServerLayerValue);
-
-            // geoServerStyle
-            String geoServerStyleValue = getTagValue(dom, "geoServerStyle");
-            geoServerStyle.setValue(geoServerStyleValue);
+            // wmsEnabled
+            String wmsEnabledValue = getTagValue(dom, "wmsEnabled");
+            if (wmsEnabledValue != null && wmsEnabledValue.equalsIgnoreCase("true"))
+                wmsEnabled.setValue(true);
+            else
+                wmsEnabled.setValue(false);
         }
     }
 
