@@ -29,6 +29,7 @@ import com.google.gwt.uibinder.client.UiField;
 import com.google.gwt.user.client.DOM;
 import com.google.gwt.user.client.ui.CheckBox;
 import com.google.gwt.user.client.ui.Composite;
+import com.google.gwt.user.client.ui.DisclosurePanel;
 import com.google.gwt.user.client.ui.HTMLPanel;
 import com.google.gwt.user.client.ui.IntegerBox;
 import com.google.gwt.user.client.ui.Label;
@@ -66,13 +67,17 @@ public class QuicklookParametersForm extends Composite {
     private final PortalContext portal;
 
     @UiField
-    HTMLPanel singleBandPanel;
+    HTMLPanel singleBandPanelBasics;
     @UiField
-    HTMLPanel multiBandPanel;
+    HTMLPanel singleBandPanelAdvanced;
     @UiField
-    HTMLPanel moreOptionsPanel;
+    HTMLPanel multiBandPanelBasics;
+    @UiField
+    HTMLPanel multiBandPanelAdvanced;
     @UiField
     HTMLPanel wmsPanel;
+    @UiField
+    DisclosurePanel advancedOptionsPanel;
 
     @UiField
     RadioButton quicklookNone;
@@ -181,8 +186,7 @@ public class QuicklookParametersForm extends Composite {
 
         if (portalContext.withPortalFeature("ql.wms")) {
             wmsAvailable = true;
-        }
-        else {
+        } else {
             wmsAvailable = false;
             wmsPanel.setVisible(false);
         }
@@ -247,29 +251,35 @@ public class QuicklookParametersForm extends Composite {
     }
 
     private void quicklookNoneChangeHandler() {
-        singleBandPanel.setVisible(false);
-        multiBandPanel.setVisible(false);
-        moreOptionsPanel.setVisible(false);
-        if( wmsAvailable ) {
+        singleBandPanelBasics.setVisible(false);
+        singleBandPanelAdvanced.setVisible(false);
+        multiBandPanelBasics.setVisible(false);
+        multiBandPanelAdvanced.setVisible(false);
+        advancedOptionsPanel.setVisible(false);
+        if (wmsAvailable) {
             wmsPanel.setVisible(false);
         }
     }
 
     private void quicklookSingleBandChangeHandler() {
-        singleBandPanel.setVisible(true);
-        multiBandPanel.setVisible(false);
-        moreOptionsPanel.setVisible(true);
-        if( wmsAvailable ) {
+        singleBandPanelBasics.setVisible(true);
+        singleBandPanelAdvanced.setVisible(true);
+        multiBandPanelBasics.setVisible(false);
+        multiBandPanelAdvanced.setVisible(false);
+        advancedOptionsPanel.setVisible(true);
+        if (wmsAvailable) {
             wmsPanel.setVisible(true);
         }
         bandNameChangeHandler();
     }
 
     private void quicklookMultiBandChangeHandler() {
-        singleBandPanel.setVisible(false);
-        multiBandPanel.setVisible(true);
-        moreOptionsPanel.setVisible(true);
-        if( wmsAvailable ) {
+        singleBandPanelBasics.setVisible(false);
+        singleBandPanelAdvanced.setVisible(false);
+        multiBandPanelBasics.setVisible(true);
+        multiBandPanelAdvanced.setVisible(true);
+        advancedOptionsPanel.setVisible(true);
+        if (wmsAvailable) {
             wmsPanel.setVisible(true);
         }
     }
@@ -504,7 +514,7 @@ public class QuicklookParametersForm extends Composite {
         } else {
             Document dom = XMLParser.parse(quicklookParametersValue);
 
-            // bandName 
+            // bandName
             String bandNameValue = getTagValue(dom, "bandName");
             if (bandNameValue != null) {
                 bandName.setValue(bandNameValue);
