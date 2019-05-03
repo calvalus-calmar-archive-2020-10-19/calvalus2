@@ -285,7 +285,7 @@ public class QuicklookParametersForm extends Composite {
     }
 
     private void setAvailableImageTypes() {
-        String[] imageNames = {"jpeg", "png", "tiff", "geotiff"};
+        String[] imageNames = {"png", "jpeg", "tiff", "geotiff"};
         int selectedIndex = imageType.getSelectedIndex();
         imageType.clear();
         for (String imageName : imageNames) {
@@ -569,9 +569,9 @@ public class QuicklookParametersForm extends Composite {
             String imageTypeValue = getTagValue(dom, "imageType");
             if (imageTypeValue == null)
                 imageType.setSelectedIndex(0);
-            else if (imageTypeValue.equalsIgnoreCase("jpeg"))
-                imageType.setSelectedIndex(0);
             else if (imageTypeValue.equalsIgnoreCase("png"))
+                imageType.setSelectedIndex(0);
+            else if (imageTypeValue.equalsIgnoreCase("jpeg"))
                 imageType.setSelectedIndex(1);
             else if (imageTypeValue.equalsIgnoreCase("tiff"))
                 imageType.setSelectedIndex(2);
