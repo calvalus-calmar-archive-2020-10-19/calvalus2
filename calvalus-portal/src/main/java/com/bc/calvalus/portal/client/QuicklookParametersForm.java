@@ -130,6 +130,7 @@ public class QuicklookParametersForm extends Composite {
     private Boolean pageLoaded = false;
     private String[] availableBandNames = null;
     private Boolean wmsAvailable;
+    private final String DEFAULT_COLOR_PALETTE = "spectrum";
 
     public QuicklookParametersForm(PortalContext portalContext) {
         this.portal = portalContext;
@@ -301,11 +302,16 @@ public class QuicklookParametersForm extends Composite {
     private void setColorPalettes() {
         this.availableColorPalettes = portal.getColorPalettes();
         colorPalette.clear();
-        colorPalette.addItem("");
-        for (DtoColorPalette dtoColorPalette : this.availableColorPalettes) {
-            colorPalette.addItem(dtoColorPalette.getQualifiedName(), dtoColorPalette.getCpdURL());
+        int index = 0;
+        for (int i = 0; i < this.availableColorPalettes.length; i++) {
+            DtoColorPalette dtoColorPalette = this.availableColorPalettes[i];
+            String qualifiedName = dtoColorPalette.getQualifiedName();
+            colorPalette.addItem(qualifiedName, dtoColorPalette.getCpdURL());
+            if (qualifiedName.equals(DEFAULT_COLOR_PALETTE)) {
+                index = i;
+            }
         }
-        colorPalette.setSelectedIndex(0);
+        colorPalette.setSelectedIndex(index);
     }
 
     public void setBandNames(String... bandNames) {
@@ -531,7 +537,7 @@ public class QuicklookParametersForm extends Composite {
             } else {
                 for (int i = 0; i < this.availableColorPalettes.length; i++) {
                     if (this.availableColorPalettes[i].getCpdURL().equals(cpdURLValue)) {
-                        colorPalette.setSelectedIndex(i + 1);
+                        colorPalette.setSelectedIndex(i);
                         break;
                     }
                 }
