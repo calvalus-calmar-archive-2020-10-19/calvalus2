@@ -127,7 +127,7 @@ public class RAConfig implements XmlConvertible {
     @Parameter
     private String goodPixelExpression;
 
-    @Parameter(defaultValue = "5,25,50,75,95")
+    @Parameter(defaultValue = "")
     private int[] percentiles;
 
     // TODO bandNames have to be given, switch to all if not given ?
@@ -146,6 +146,9 @@ public class RAConfig implements XmlConvertible {
 
     @Parameter(defaultValue = "false")
     private boolean writePixelValues = false;
+
+    @Parameter(defaultValue = "false")
+    private boolean binValuesAsRatio = false;
 
     // internal, will be set by the production type, to prevent repeated reading
     @Parameter
@@ -211,10 +214,14 @@ public class RAConfig implements XmlConvertible {
     }
     
     public void setPercentiles(String percentilesText) {
-        String[] split = percentilesText.split(",");
-        this.percentiles = new int[split.length];
-        for (int i = 0; i < split.length; i++) {
-            this.percentiles[i] = Integer.parseInt(split[i]);
+        if (percentilesText == null || percentilesText.trim().length() == 0) {
+            this.percentiles = null;
+        } else {
+            String[] split = percentilesText.split(",");
+            this.percentiles = new int[split.length];
+            for (int i = 0; i < split.length; i++) {
+                this.percentiles[i] = Integer.parseInt(split[i]);
+            }
         }
     }
 
@@ -256,6 +263,14 @@ public class RAConfig implements XmlConvertible {
 
     public void setWritePixelValues(boolean writePixelValues) {
         this.writePixelValues = writePixelValues;
+    }
+
+    public boolean isBinValuesAsRatio() {
+        return binValuesAsRatio;
+    }
+
+    public void setBinValuesAsRatio(boolean binValuesAsRatio) {
+        this.binValuesAsRatio = binValuesAsRatio;
     }
 
     public static RAConfig get(Configuration conf) {
