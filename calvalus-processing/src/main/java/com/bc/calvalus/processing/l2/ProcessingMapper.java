@@ -236,7 +236,12 @@ public class ProcessingMapper extends Mapper<NullWritable, NullWritable, Text /*
             // re-read target product for customisation, metadata processing, quicklook generation, formatting
 
             if (checkNoFormattingRequired(jobConfig)) { return; }
-            Product targetProduct = processorAdapter.getProcessedProduct(SubProgressMonitor.create(pm, progressForProcessing));
+            Product targetProduct;
+            if (jobConfig.getBoolean("outputNative", false)) {
+                targetProduct = ProductIO.readProduct(processorAdapter.getOutputProductPath().toString());
+            } else {
+                targetProduct = processorAdapter.getProcessedProduct(SubProgressMonitor.create(pm, progressForProcessing));
+            }
             LOG.info("target product determined");
             if (checkProductEmpty(context, targetProduct)) { return; }
             targetProduct = customiseTargetProduct(jobConfig, processorAdapter, targetProduct);
@@ -620,7 +625,8 @@ public class ProcessingMapper extends Mapper<NullWritable, NullWritable, Text /*
         File productFile = productFormatter.createTemporaryProductFile();
         LOG.info("Start writing product to file: " + productFile.getName());
 
-        ProductIO.writeProduct(targetProduct, productFile, outputFormat, false, pm);
+        //ProductIO.writeProduct(targetProduct, productFile, outputFormat, false, pm);
+        GPF.writeProduct(targetProduct, productFile, outputFormat, false, pm);
         LOG.info("Formatted product file written");
 
         context.setStatus("Copying");

@@ -4,21 +4,20 @@
 
     <groupId>com.bc.calvalus</groupId>
     <artifactId>calvalus</artifactId>
-    <version>2.17-SNAPSHOT</version>
+    <version>2.19-SNAPSHOT</version>
     <packaging>pom</packaging>
 
     <name>Calvalus</name>
     <description>Calvalus root module</description>
 
     <properties>
-        <hadoop.version>2.7.3-BC</hadoop.version>
-        <!--<hadoop.version>2.9.1-BC</hadoop.version>-->
-        <calvalus.version>2.17-SNAPSHOT</calvalus.version>
+        <hadoop.version>3.2.1-BC</hadoop.version>
+        <calvalus.version>2.19-SNAPSHOT</calvalus.version>
         <bc-wps.version>1.2</bc-wps.version>
-        <snap.version>7.0.0-SNAPSHOT</snap.version>
-        <ceres.version>[6.0.0-SNAPSHOT,7.0.0-SNAPSHOT]</ceres.version>
-        <seadas.reader.version>1.8-SNAPSHOT</seadas.reader.version>
-        <probav.reader.version>2.1.0-SNAPSHOT</probav.reader.version>
+        <snap.version>8.0.0-SNAPSHOT</snap.version>
+        <ceres.version>8.0.0-SNAPSHOT</ceres.version>
+        <seadas.reader.version>1.8</seadas.reader.version>
+        <probav.reader.version>2.1.0</probav.reader.version>
         <geo-inventory-version>0.6.1</geo-inventory-version>
         <geotools.version>17.1</geotools.version>
         <slf4j.version>1.7.21</slf4j.version>
@@ -43,11 +42,10 @@
     </modules>
 
     <repositories>
-<!--
         <repository>
-            <id>bc-mvn-repo-closed</id>
-            <name>Private Maven Repository at Brockmann Consult</name>
-            <url>scp://www.brockmann-consult.de/home/maven-cs</url>
+            <id>bc-nexus-repo</id>
+            <name>Public Nexus Repository for BC</name>
+            <url>http://nexus.senbox.net/nexus/content/repositories/public/</url>
             <releases>
                 <enabled>true</enabled>
                 <checksumPolicy>warn</checksumPolicy>
@@ -57,11 +55,10 @@
                 <checksumPolicy>warn</checksumPolicy>
             </snapshots>
         </repository>
-        -->
         <repository>
             <id>snap-repo-public</id>
             <name>Public Maven Repository for SNAP</name>
-            <url>http://nexus.senbox.net/nexus/content/repositories/public/</url>
+            <url>https://snap-build-server.tilaa.cloud/nexus/repository/snap-maven-public/</url>
             <releases>
                 <enabled>true</enabled>
                 <checksumPolicy>warn</checksumPolicy>
@@ -77,6 +74,29 @@
             <url>http://download.osgeo.org/webdav/geotools/</url>
         </repository>
     </repositories>
+
+    <pluginRepositories>
+        <pluginRepository>
+            <id>snap-repo-public</id>
+            <name>Public Maven Repository for SNAP</name>
+            <url>https://snap-build-server.tilaa.cloud/nexus/repository/snap-maven-public/</url>
+        </pluginRepository>
+    </pluginRepositories>
+
+    <distributionManagement>
+        <repository>
+            <id>bc-nexus-repo</id>
+            <name>Public Nexus Repository for BC</name>
+            <url>http://nexus.senbox.net/nexus/content/repositories/releases/</url>
+            <uniqueVersion>true</uniqueVersion>
+        </repository>
+        <snapshotRepository>
+            <id>bc-nexus-repo</id>
+            <name>Public Nexus Repository for BC</name>
+            <url>http://nexus.senbox.net/nexus/content/repositories/snapshots/</url>
+            <uniqueVersion>false</uniqueVersion>
+        </snapshotRepository>
+    </distributionManagement>
 
     <build>
         <plugins>
@@ -331,6 +351,11 @@
                 <version>1.4.8</version>
             </dependency>
             <dependency>
+                <groupId>com.googlecode.json-simple</groupId>
+                <artifactId>json-simple</artifactId>
+                <version>1.1.1</version>
+            </dependency>
+            <dependency>
                 <groupId>com.fasterxml.jackson.core</groupId>
                 <artifactId>jackson-databind</artifactId>
                 <version>2.2.3</version>
@@ -560,7 +585,7 @@
             <dependency>
                 <groupId>com.google.guava</groupId>
                 <artifactId>guava</artifactId>
-                <version>16.0.1</version>
+                <version>23.0</version>
             </dependency>
 
             <dependency>
