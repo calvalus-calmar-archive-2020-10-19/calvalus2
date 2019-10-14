@@ -53,6 +53,7 @@
     "_translate.productionName"   : "mapreduce.job.name",
     "_translate.inputPath"        : [ "calvalus.input.pathPatterns", "mapreduce.input.fileinputformat.inputdir" ],
     "_translate.inputInventory"   : "calvalus.input.geoInventory",
+    "_translate.catalogue"        : "calvalus.input.geoInventory",
     "_translate.dateRanges"       : [ "calvalus.input.dateRanges", [ "calvalus.minDate", "minDateOf" ], [ "calvalus.maxDate", "maxDateOf" ] ],
     "_translate.regionGeometry"   : [ "calvalus.regionGeometry", "calvalus.mosaic.regionGeometry" ],
     "_translate.processorName"    : "calvalus.l2.operator",
@@ -70,7 +71,8 @@
     "_translate.outputUmask"      : "fs.permissions.umask-mode",
     "_translate.processingMemory" : [ [ "mapreduce.map.java.opts", "javaOptsOfMem" ], [ "mapreduce.map.memory.mb", "add512" ] ],
     "_translate.aggregationMemory" : [ [ "mapreduce.reduce.java.opts", "javaOptsOfMem" ], [ "mapreduce.reduce.memory.mb", "add512" ] ],
-    
+    "_translate.snap.tileCache"   : "calvalus.system.snap.jai.tileCacheSize",
+
     "_translate.calvalus"         : "calvalus.calvalus.bundle",
     "_translate.snap"             : "calvalus.snap.bundle",
     "_translate.processorBundles" : "calvalus.bundles"
