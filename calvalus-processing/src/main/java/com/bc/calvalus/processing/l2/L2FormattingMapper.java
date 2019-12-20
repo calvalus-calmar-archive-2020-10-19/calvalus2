@@ -193,7 +193,7 @@ public class L2FormattingMapper extends Mapper<NullWritable, NullWritable, NullW
                     LOG.warning("No Quicklook upload handler configured");
                 }
                 else if (qlUploadHandler.equalsIgnoreCase("geoserver")) {
-                    if ("geotiff".equalsIgnoreCase(qlConfig.getImageType())) {
+                    if ("geotiff".equalsIgnoreCase(qlConfig.getImageType()) || ("cog".equalsIgnoreCase(qlConfig.getImageType()))) {
                         // upload geoTiff to GeoServer
                         try {
                             LOG.info(String.format("Quicklook upload handler: %s", qlUploadHandler));
