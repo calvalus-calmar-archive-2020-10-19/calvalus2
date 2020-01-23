@@ -20,6 +20,7 @@ import com.bc.calvalus.commons.CalvalusLogger;
 import com.bc.calvalus.processing.JobConfigNames;
 import com.bc.calvalus.processing.beam.CalvalusProductIO;
 import com.bc.calvalus.processing.hadoop.RasterStackWritable;
+import com.bc.calvalus.processing.l3.HadoopBinManager;
 import com.bc.calvalus.processing.utils.GeometryUtils;
 import com.vividsolutions.jts.geom.Geometry;
 import org.apache.commons.compress.archivers.tar.TarArchiveEntry;
@@ -28,8 +29,8 @@ import org.apache.commons.compress.compressors.gzip.GzipCompressorInputStream;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.io.LongWritable;
 import org.apache.hadoop.io.NullWritable;
-import org.apache.hadoop.mapred.FileSplit;
 import org.apache.hadoop.mapreduce.Mapper;
+import org.apache.hadoop.mapreduce.lib.input.FileSplit;
 import org.esa.snap.binning.support.CrsGrid;
 import org.esa.snap.core.dataio.ProductIO;
 import org.esa.snap.core.datamodel.Band;
@@ -59,8 +60,10 @@ public class FirePixelMapper extends Mapper<NullWritable, NullWritable, LongWrit
     @Override
     public void run(Context context) throws IOException, InterruptedException {
         Configuration conf = context.getConfiguration();
-        int numRowsGlobal = conf.getInt("numRowsGlobal", 64800);
+        int numRowsGlobal = HadoopBinManager.getBinningConfig(conf).getNumRows();
         FileSplit fileSplit = (FileSplit) context.getInputSplit();
+
+        LOG.info(String.format("Input split: %s", fileSplit.toString()));
 
         File localOutputFile = CalvalusProductIO.copyFileToLocal(fileSplit.getPath(), conf);
         File[] untarredOutput = untar(localOutputFile, "(.*Classification.*|.*Uncertainty.*)");
@@ -68,8 +71,15 @@ public class FirePixelMapper extends Mapper<NullWritable, NullWritable, LongWrit
         Product classificationProduct = ProductIO.readProduct(untarredOutput[0]);
         Product uncertaintyProduct = ProductIO.readProduct(untarredOutput[1]);
 
+        LOG.info(String.format("classificationProduct: %s", classificationProduct.getName()));
+        LOG.info(String.format("uncertaintyProduct: %s", uncertaintyProduct.getName()));
+
         Geometry continentalGeometry = GeometryUtils.createGeometry(conf.get(JobConfigNames.CALVALUS_REGION_GEOMETRY));
         Rectangle rectangle = SubsetOp.computePixelRegion(classificationProduct, continentalGeometry, 0);
+        if (rectangle.isEmpty()) {
+            LOG.info("No intersection between target area and input products - skipping.");
+            return;
+        }
         long binIndex = getBinIndex(classificationProduct, rectangle, numRowsGlobal);
 
         short[] classificationPixels = new short[rectangle.width * rectangle.height];
@@ -78,7 +88,7 @@ public class FirePixelMapper extends Mapper<NullWritable, NullWritable, LongWrit
         readData(classificationProduct, rectangle, classificationPixels);
         readData(uncertaintyProduct, rectangle, uncertaintyPixels);
 
-        RasterStackWritable rasterStackWritable = new RasterStackWritable();
+        RasterStackWritable rasterStackWritable = new RasterStackWritable(rectangle.width, rectangle.height, 2);
         rasterStackWritable.setBandType(0, RasterStackWritable.Type.SHORT);
         rasterStackWritable.setData(0, classificationPixels, RasterStackWritable.Type.SHORT);
         rasterStackWritable.setBandType(1, RasterStackWritable.Type.BYTE);
