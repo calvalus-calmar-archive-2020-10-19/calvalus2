@@ -5,6 +5,7 @@ import org.apache.hadoop.io.Writable;
 import java.io.DataInput;
 import java.io.DataOutput;
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -28,11 +29,11 @@ public class RasterStackWritable implements Writable {
 
     @Override
     public void write(DataOutput out) throws IOException {
-        out.write(width);
-        out.write(height);
-        out.write(bandTypes.length);
+        out.writeInt(width);
+        out.writeInt(height);
+        out.writeInt(bandTypes.length);
         for (Type bandType : bandTypes) {
-            out.write(bandType.id);
+            out.writeChar(bandType.id);
         }
 
         for (int i = 0; i < bandTypes.length; i++) {
@@ -52,6 +53,8 @@ public class RasterStackWritable implements Writable {
                         out.writeDouble(((double[]) sourceArray)[pixelIndex]);
                     } else if (type == Type.SHORT) {
                         out.writeShort(((short[]) sourceArray)[pixelIndex]);
+                    } else if (type == Type.BYTE) {
+                        out.writeByte(((byte[]) sourceArray)[pixelIndex]);
                     }
                     pixelIndex++;
                 }
@@ -139,9 +142,9 @@ public class RasterStackWritable implements Writable {
         private static final Map<Character, Type> TYPE_ID_TO_TYPE_MAP = new HashMap<>();
 
         private final char id;
-        private final Class type;
+        private final Class<? extends Number> type;
 
-        Type(char id, Class type) {
+        Type(char id, Class<? extends Number> type) {
             this.id = id;
             this.type = type;
         }
@@ -150,7 +153,7 @@ public class RasterStackWritable implements Writable {
             return id;
         }
 
-        public Class getType() {
+        public Class<? extends Number> getType() {
             return type;
         }
 
@@ -165,5 +168,15 @@ public class RasterStackWritable implements Writable {
                 TYPE_ID_TO_TYPE_MAP.put(type.getId(), type);
             }
         }
+    }
+
+    @Override
+    public String toString() {
+        return "RasterStackWritable{" +
+                "width=" + width +
+                ", height=" + height +
+                ", bandTypes=" + Arrays.toString(bandTypes) +
+                ", data=" + Arrays.toString(data) +
+                '}';
     }
 }
