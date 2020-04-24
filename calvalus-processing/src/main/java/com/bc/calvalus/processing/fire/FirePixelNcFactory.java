@@ -1,5 +1,14 @@
 package com.bc.calvalus.processing.fire;
 
+import org.esa.snap.core.datamodel.CrsGeoCoding;
+import org.esa.snap.core.datamodel.GeoCoding;
+import org.esa.snap.core.util.StringUtils;
+import org.esa.snap.dataio.netcdf.NetCDF4Chunking;
+import org.geotools.referencing.crs.DefaultGeographicCRS;
+import org.opengis.referencing.FactoryException;
+import org.opengis.referencing.crs.CoordinateReferenceSystem;
+import org.opengis.referencing.operation.MathTransform;
+import org.opengis.referencing.operation.TransformException;
 import ucar.ma2.Array;
 import ucar.ma2.DataType;
 import ucar.nc2.Attribute;
@@ -7,18 +16,17 @@ import ucar.nc2.NetcdfFileWriter;
 import ucar.nc2.Variable;
 
 import java.awt.Rectangle;
+import java.awt.geom.AffineTransform;
 import java.io.IOException;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.UUID;
 
-import org.esa.snap.dataio.netcdf.NetCDF4Chunking;
-
 public class FirePixelNcFactory {
 
     public NetcdfFileWriter createNcFile(String filename, String version, String timeCoverageStart, String timeCoverageEnd, int numRowsGlobal, Rectangle xyBox) throws IOException {
-        NetcdfFileWriter ncFile = NetcdfFileWriter.createNew(NetcdfFileWriter.Version.netcdf4_classic, filename, new NetCDF4Chunking());
+        NetcdfFileWriter ncFile = NetcdfFileWriter.createNew(NetcdfFileWriter.Version.netcdf4, filename, new NetCDF4Chunking());
 
         ncFile.addUnlimitedDimension("time");
         ncFile.addDimension(null, "bounds", 2);
@@ -27,7 +35,7 @@ public class FirePixelNcFactory {
 
         Variable julianDateVar = ncFile.addVariable(null, "JD", DataType.SHORT, "time lat lon");
         julianDateVar.addAttribute(new Attribute("long_name", "Date of the first detection"));
-        julianDateVar.addAttribute(new Attribute("units", "Day of the year"));
+        julianDateVar.addAttribute(new Attribute("units", "days since " + timeCoverageStart.substring(0,4) + "-01-01"));
         julianDateVar.addAttribute(new Attribute("comment", "Possible values: 0  when the pixel is not burned; 1 to 366 day of the first detection when the pixel is burned; -1 when the pixel is not observed in the month; -2 when pixel is not burnable: water bodies, bare areas, urban areas and permanent snow and ice."));
         julianDateVar.addAttribute(new Attribute("_ChunkSizes", Array.factory(DataType.INT, new int[]{3}, new int[]{1,1200,1200})));
 
@@ -39,7 +47,7 @@ public class FirePixelNcFactory {
 
         Variable landCoverVar = ncFile.addVariable(null, "LC", DataType.UBYTE, "time lat lon");
         landCoverVar.addAttribute(new Attribute("long_name", "Land cover of burned pixels"));
-        landCoverVar.addAttribute(new Attribute("units", "Land cover code"));
+        //landCoverVar.addAttribute(new Attribute("units", "Land cover code"));
         landCoverVar.addAttribute(new Attribute("comment", "Land cover of the burned pixel, extracted from the C3S LandCover v2.1.1 . N is the number of the land cover category in the reference map. It is only valid when JD > 0. Pixel value is 0 to N under the following codes: 10 = Cropland, rainfed; 20 = Cropland, irrigated or post-flooding; 30 = Mosaic cropland (>50%) / natural vegetation (tree, shrub, herbaceous cover) (<50%); 40 = Mosaic natural vegetation (tree, shrub, herbaceous cover) (>50%) / cropland (<50%); 50 = Tree cover, broadleaved, evergreen, closed to open (>15%); 60 = Tree cover, broadleaved, deciduous, closed to open (>15%); 70 = Tree cover, needleleaved, evergreen, closed to open (>15%); 80 = Tree cover, needleleaved, deciduous, closed to open (>15%); 90 = Tree cover, mixed leaf type (broadleaved and needleleaved); 100 = Mosaic tree and shrub (>50%) / herbaceous cover (<50%); 110 = Mosaic herbaceous cover (>50%) / tree and shrub (<50%); 120 = Shrubland; 130 = Grassland; 140 = Lichens and mosses; 150 = Sparse vegetation (tree, shrub, herbaceous cover) (<15%); 160 = Tree cover, flooded, fresh or brackish water; 170 = Tree cover, flooded, saline water; 180 = Shrub or herbaceous cover, flooded, fresh/saline/brackish water."));
         landCoverVar.addAttribute(new Attribute("_ChunkSizes", Array.factory(DataType.INT, new int[]{3}, new int[]{1,1200,1200})));
 
@@ -49,8 +57,8 @@ public class FirePixelNcFactory {
         lonVar.addAttribute(new Attribute("units", "degree_east"));
         lonVar.addAttribute(new Attribute("axis", "X"));
         lonVar.addAttribute(new Attribute("bounds", "lon_bounds"));
-        lonVar.addAttribute(new Attribute("valid_min", "-180.0"));
-        lonVar.addAttribute(new Attribute("valid_max", "180.0"));
+        lonVar.addAttribute(new Attribute("valid_min", -180.0));
+        lonVar.addAttribute(new Attribute("valid_max", 180.0));
         ncFile.addVariable(null, "lon_bounds", DataType.DOUBLE, "lon bounds");
 
         Variable latVar = ncFile.addVariable(null, "lat", DataType.DOUBLE, "lat");
@@ -59,8 +67,8 @@ public class FirePixelNcFactory {
         latVar.addAttribute(new Attribute("axis", "Y"));
         latVar.addAttribute(new Attribute("units", "degree_north"));
         latVar.addAttribute(new Attribute("bounds", "lat_bounds"));
-        latVar.addAttribute(new Attribute("valid_min", "-90.0"));
-        latVar.addAttribute(new Attribute("valid_max", "90.0"));
+        latVar.addAttribute(new Attribute("valid_min", -90.0));
+        latVar.addAttribute(new Attribute("valid_max", 90.0));
         ncFile.addVariable(null, "lat_bounds", DataType.DOUBLE, "lat bounds");
 
         Variable timeVar = ncFile.addVariable(null, "time", DataType.DOUBLE, "time");
@@ -73,10 +81,36 @@ public class FirePixelNcFactory {
         timeVar.addAttribute(new Attribute("calendar", "standard"));
         ncFile.addVariable(null, "time_bounds", DataType.DOUBLE, "time bounds");
 
+        try {
+            GeoCoding geoCoding = new CrsGeoCoding(DefaultGeographicCRS.WGS84,
+                                                   xyBox.width, xyBox.height,
+                                                   -180.0 + xyBox.x * 180.0 / numRowsGlobal,
+                                                   90.0 - xyBox.y * 180.0 / numRowsGlobal,
+                                                   360.0 / (2*numRowsGlobal), 180.0 / numRowsGlobal,
+                                                   0.0, 0.0);
+
+            addWktAsVariable(ncFile, geoCoding);
+        } catch (FactoryException | TransformException e) {
+            throw new IOException(e);
+        }
+
         addGroupAttributes(filename, version, ncFile, timeCoverageStart, timeCoverageEnd, numRowsGlobal, xyBox);
         ncFile.create();
         return ncFile;
     }
+
+    private void addWktAsVariable(NetcdfFileWriter ncFile, GeoCoding geoCoding) throws IOException {
+        final CoordinateReferenceSystem crs = geoCoding.getMapCRS();
+        final double[] matrix = new double[6];
+        final MathTransform transform = geoCoding.getImageToMapTransform();
+        if (transform instanceof AffineTransform) {
+            ((AffineTransform) transform).getMatrix(matrix);
+        }
+        final Variable crsVariable = ncFile.addVariable("crs", DataType.INT, "");
+        crsVariable.addAttribute(new Attribute("wkt", crs.toWKT()));
+        crsVariable.addAttribute(new Attribute("i2m", StringUtils.arrayToCsv(matrix)));
+    }
+
 
     private void addGroupAttributes(String filename, String version, NetcdfFileWriter ncFile, String timeCoverageStart, String timeCoverageEnd, int numRowsGlobal, Rectangle xyBox) {
         Instant now = Instant.now();
@@ -88,7 +122,7 @@ public class FirePixelNcFactory {
         ncFile.addGroupAttribute(null, new Attribute("references", "https://climate.copernicus.eu/"));
         ncFile.addGroupAttribute(null, new Attribute("tracking_id", uuid));
         ncFile.addGroupAttribute(null, new Attribute("conventions", "CF-1.7"));
-        ncFile.addGroupAttribute(null, new Attribute("product_version", version));
+        ncFile.addGroupAttribute(null, new Attribute("product_version", "v"+version));
         ncFile.addGroupAttribute(null, new Attribute("summary", "The pixel product is a raster dataset consisting of three layers that together describe the attributes of the BA product. It uses the following naming convention: ${Indicative Date}-C3S-L3S_FIRE-BA-${Indicative sensor}[-${Additional Segregator}]-fv${xx.x}.nc. ${Indicative Date} is the identifying date for this data set. Format is YYYYMMDD, where YYYY is the four-digit year, MM is the two-digit month from 01 to 12 and DD is the two-digit day of the month from 01 to 31. For monthly products the date is set to 01. ${Indicative sensor} is OLCI. ${Additional Segregator} is the AREA_${TILE_CODE} being the tile code described in the Product User Guide. ${File Version} is the File version number in the form n{1,}[.n{1,}] (That is 1 or more digits followed by optional . and another 1 or more digits). An example is: 20180101-C3S-L3S_FIRE-BA-OLCI-AREA_1-fv1.0.nc"));
         ncFile.addGroupAttribute(null, new Attribute("keywords", "Burned Area, Fire Disturbance, Climate Change, ESA, C3S, GCOS"));
         ncFile.addGroupAttribute(null, new Attribute("id", filename.substring(0, filename.length()-3)));
@@ -103,10 +137,10 @@ public class FirePixelNcFactory {
         ncFile.addGroupAttribute(null, new Attribute("creator_email", "emilio.chuvieco@uah.es"));
         ncFile.addGroupAttribute(null, new Attribute("contact", "http://copernicus-support.ecmwf.int"));
         ncFile.addGroupAttribute(null, new Attribute("project", "EC C3S Fire Burned Area"));
-        ncFile.addGroupAttribute(null, new Attribute("geospatial_lat_min", String.valueOf(90.0-180.0*(xyBox.y + xyBox.height)/numRowsGlobal)));
-        ncFile.addGroupAttribute(null, new Attribute("geospatial_lat_max", String.valueOf(90.0-180.0*xyBox.y/numRowsGlobal)));
-        ncFile.addGroupAttribute(null, new Attribute("geospatial_lon_min", String.valueOf(-180.0+180.0*xyBox.x/numRowsGlobal)));
-        ncFile.addGroupAttribute(null, new Attribute("geospatial_lon_max", String.valueOf(-180.0+180.0*(xyBox.x + xyBox.width)/numRowsGlobal)));
+        ncFile.addGroupAttribute(null, new Attribute("geospatial_lat_min", 90.0-180.0*(xyBox.y + xyBox.height)/numRowsGlobal));
+        ncFile.addGroupAttribute(null, new Attribute("geospatial_lat_max", 90.0-180.0*xyBox.y/numRowsGlobal));
+        ncFile.addGroupAttribute(null, new Attribute("geospatial_lon_min", -180.0+180.0*xyBox.x/numRowsGlobal));
+        ncFile.addGroupAttribute(null, new Attribute("geospatial_lon_max", -180.0+180.0*(xyBox.x + xyBox.width)/numRowsGlobal));
         ncFile.addGroupAttribute(null, new Attribute("time_coverage_start", timeCoverageStart.substring(0,4)+timeCoverageStart.substring(5,7)+timeCoverageStart.substring(8,10)+"T000000Z"));
         ncFile.addGroupAttribute(null, new Attribute("time_coverage_end", timeCoverageEnd.substring(0,4)+timeCoverageEnd.substring(5,7)+timeCoverageEnd.substring(8,10)+"T235959Z"));
         ncFile.addGroupAttribute(null, new Attribute("time_coverage_duration", "P1M"));

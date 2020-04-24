@@ -1,10 +1,19 @@
 package com.bc.calvalus.processing.fire.format.grid;
 
+import org.esa.snap.core.datamodel.CrsGeoCoding;
+import org.esa.snap.core.datamodel.GeoCoding;
+import org.esa.snap.core.util.StringUtils;
+import org.geotools.referencing.crs.DefaultGeographicCRS;
+import org.opengis.referencing.FactoryException;
+import org.opengis.referencing.crs.CoordinateReferenceSystem;
+import org.opengis.referencing.operation.MathTransform;
+import org.opengis.referencing.operation.TransformException;
 import ucar.ma2.DataType;
 import ucar.nc2.Attribute;
 import ucar.nc2.NetcdfFileWriter;
 import ucar.nc2.Variable;
 
+import java.awt.geom.AffineTransform;
 import java.io.IOException;
 import java.time.Instant;
 import java.time.ZoneId;
@@ -19,7 +28,7 @@ public abstract class NcFileFactory {
         ncFile.addDimension(null, "vegetation_class", lcClassesCount);
         ncFile.addDimension(null, "lat", 720);
         ncFile.addDimension(null, "lon", 1440);
-        ncFile.addDimension(null, "nv", 2);
+        ncFile.addDimension(null, "bounds", 2);
         ncFile.addDimension(null, "strlen", 150);
         ncFile.addUnlimitedDimension("time");
 
@@ -27,21 +36,21 @@ public abstract class NcFileFactory {
         latVar.addAttribute(new Attribute("units", "degree_north"));
         latVar.addAttribute(new Attribute("standard_name", "latitude"));
         latVar.addAttribute(new Attribute("long_name", "latitude"));
-        latVar.addAttribute(new Attribute("bounds", "lat_bnds"));
-        ncFile.addVariable(null, "lat_bnds", DataType.FLOAT, "lat nv");
+        latVar.addAttribute(new Attribute("bounds", "lat_bounds"));
+        ncFile.addVariable(null, "lat_bounds", DataType.FLOAT, "lat bounds");
         Variable lonVar = ncFile.addVariable(null, "lon", DataType.FLOAT, "lon");
         lonVar.addAttribute(new Attribute("units", "degree_east"));
         lonVar.addAttribute(new Attribute("standard_name", "longitude"));
         lonVar.addAttribute(new Attribute("long_name", "longitude"));
-        lonVar.addAttribute(new Attribute("bounds", "lon_bnds"));
-        ncFile.addVariable(null, "lon_bnds", DataType.FLOAT, "lon nv");
+        lonVar.addAttribute(new Attribute("bounds", "lon_bounds"));
+        ncFile.addVariable(null, "lon_bounds", DataType.FLOAT, "lon bounds");
         Variable timeVar = ncFile.addVariable(null, "time", DataType.DOUBLE, "time");
         timeVar.addAttribute(new Attribute("units", "days since 1970-01-01 00:00:00"));
         timeVar.addAttribute(new Attribute("standard_name", "time"));
         timeVar.addAttribute(new Attribute("long_name", "time"));
-        timeVar.addAttribute(new Attribute("bounds", "time_bnds"));
+        timeVar.addAttribute(new Attribute("bounds", "time_bounds"));
         timeVar.addAttribute(new Attribute("calendar", "standard"));
-        ncFile.addVariable(null, "time_bnds", DataType.FLOAT, "time nv");
+        ncFile.addVariable(null, "time_bounds", DataType.FLOAT, "time bounds");
         Variable vegetationClassVar = ncFile.addVariable(null, "vegetation_class", DataType.INT, "vegetation_class");
         vegetationClassVar.addAttribute(new Attribute("units", "1"));
         vegetationClassVar.addAttribute(new Attribute("long_name", "vegetation class number"));
@@ -67,10 +76,35 @@ public abstract class NcFileFactory {
         burnedAreaInVegClassVar.addAttribute(new Attribute("cell_methods", "time: sum"));
         burnedAreaInVegClassVar.addAttribute(new Attribute("comment", getBurnedAreaInVegClassComment()));
 
+        try {
+            GeoCoding geoCoding = new CrsGeoCoding(DefaultGeographicCRS.WGS84,
+                                                   1440, 720,
+                                                   -180,90,
+                                                   360.0 / 1440, 180.0 / 720,
+                                                   0.0, 0.0);
+
+            addWktAsVariable(ncFile, geoCoding);
+        } catch (FactoryException | TransformException e) {
+            throw new IOException(e);
+        }
+
         addGroupAttributes(filename, version, ncFile, timeCoverageStart, timeCoverageEnd, numberOfDays);
         ncFile.create();
         return ncFile;
     }
+
+    private void addWktAsVariable(NetcdfFileWriter ncFile, GeoCoding geoCoding) throws IOException {
+        final CoordinateReferenceSystem crs = geoCoding.getMapCRS();
+        final double[] matrix = new double[6];
+        final MathTransform transform = geoCoding.getImageToMapTransform();
+        if (transform instanceof AffineTransform) {
+            ((AffineTransform) transform).getMatrix(matrix);
+        }
+        final Variable crsVariable = ncFile.addVariable("crs", DataType.INT, "");
+        crsVariable.addAttribute(new Attribute("wkt", crs.toWKT()));
+        crsVariable.addAttribute(new Attribute("i2m", StringUtils.arrayToCsv(matrix)));
+    }
+
 
     protected String getBurnedAreaInVegClassComment() {
         return "Burned area by land cover classes; land cover classes are from CCI Land Cover, http://www.esa-landcover-cci.org/";

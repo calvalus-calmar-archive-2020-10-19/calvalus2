@@ -34,9 +34,8 @@ import org.apache.hadoop.mapreduce.TaskInputOutputContext;
 import org.esa.snap.binning.PlanetaryGrid;
 import org.esa.snap.binning.TemporalBinSource;
 import org.esa.snap.binning.operator.BinningConfig;
-import org.esa.snap.binning.operator.formatter.Formatter;
-import org.esa.snap.binning.operator.formatter.FormatterConfig;
-import org.esa.snap.binning.operator.formatter.FormatterFactory;
+import org.esa.snap.binning.operator.Formatter;
+import org.esa.snap.binning.operator.FormatterConfig;
 import org.esa.snap.core.datamodel.MetadataElement;
 import org.esa.snap.core.datamodel.Product;
 import org.esa.snap.core.datamodel.ProductData;
@@ -64,7 +63,6 @@ public class L3Formatter {
     private final String[] featureNames;
     private final MetadataSerializer metadataSerializer;
     private final BinningConfig binningConfig;
-    private final Formatter formatter;
     private FormatterConfig formatterConfig;
 
 
@@ -86,10 +84,22 @@ public class L3Formatter {
         formatterConfig.setOutputFile(outputFile);
         formatterConfig.setOutputFormat(outputFormat);
 
-        final String formatterName = conf.get(JobConfigNames.CALVALUS_L3_FORMATTER_NAME);
-        formatter = FormatterFactory.get(formatterName);
-
         metadataSerializer = new MetadataSerializer();
+    }
+
+    private void format(TemporalBinSource temporalBinSource, String regionName, String regionWKT) throws Exception {
+        Geometry regionGeometry = GeometryUtils.createGeometry(regionWKT);
+        final String processingHistoryXml = configuration.get(JobConfigNames.PROCESSING_HISTORY);
+        final MetadataElement processingGraphMetadata = metadataSerializer.fromXml(processingHistoryXml);
+        // TODO maybe replace region information in metadata if overwritten in formatting request
+        Formatter.format(planetaryGrid,
+                temporalBinSource,
+                featureNames,
+                formatterConfig,
+                regionGeometry,
+                startTime,
+                endTime,
+                processingGraphMetadata);
     }
 
     private static ProductData.UTC parseTime(String timeString) {
@@ -103,7 +113,7 @@ public class L3Formatter {
     public static void write(TaskInputOutputContext context, TemporalBinSource temporalBinSource,
                              String dateStart, String dateStop,
                              String regionName, String regionWKT,
-                             String productName) throws IOException {
+                             String productName ) throws IOException {
 
         Configuration conf = context.getConfiguration();
         GpfUtils.init(conf);
@@ -112,21 +122,33 @@ public class L3Formatter {
         ConverterRegistry.getInstance().setConverter(Product.class, new ProductConverter(conf));
         String format = conf.get(JobConfigNames.CALVALUS_OUTPUT_FORMAT, null);
         String compression = conf.get(JobConfigNames.CALVALUS_OUTPUT_COMPRESSION, null);
-        ProductFormatter productFormatter = new ProductFormatter(productName, format, compression);
+        BinningConfig binningConfig = HadoopBinManager.getBinningConfig(conf);
+        ProductFormatter productFormatter;
+        if ("org.esa.snap.binning.support.IsinPlanetaryGrid".equals(binningConfig.getPlanetaryGrid())){
+            productFormatter = new ProductFormatter(productName,  "dir",null);
+        } else {
+            productFormatter = new ProductFormatter(productName, format, compression);
+        }
         try {
             File productFile = productFormatter.createTemporaryProductFile();
 
             L3Formatter formatter = new L3Formatter(dateStart, dateStop,
-                    productFile.getAbsolutePath(),
-                    productFormatter.getOutputFormat(),
-                    conf);
+                                                    productFile.getAbsolutePath(),
+                                                    productFormatter.getOutputFormat(),
+                                                    conf);
             LOG.info("Start formatting product to file: " + productFile.getName());
             context.setStatus("formatting");
             formatter.format(temporalBinSource, regionName, regionWKT);
 
             LOG.info("Finished formatting product.");
             context.setStatus("copying");
-            productFormatter.compressToHDFS(context, productFile);
+
+            if ("org.esa.snap.binning.support.IsinPlanetaryGrid".equals(binningConfig.getPlanetaryGrid())) {
+                //For the case of IsinPlanetaryGrid the whole directory has to be copied.
+                productFormatter.compressToHDFS(context, productFile.getParentFile());
+            } else {
+                productFormatter.compressToHDFS(context, productFile);
+            }
             context.getCounter(COUNTER_GROUP_NAME_PRODUCTS, "Product formatted").increment(1);
         } catch (Exception e) {
             LOG.log(Level.WARNING, "Formatting failed.", e);
@@ -135,22 +157,6 @@ public class L3Formatter {
             productFormatter.cleanupTempDir();
             context.setStatus("");
         }
-    }
-
-    private void format(TemporalBinSource temporalBinSource, String regionName, String regionWKT) throws Exception {
-        Geometry regionGeometry = GeometryUtils.createGeometry(regionWKT);
-        final String processingHistoryXml = configuration.get(JobConfigNames.PROCESSING_HISTORY);
-        final MetadataElement processingGraphMetadata = metadataSerializer.fromXml(processingHistoryXml);
-
-        // TODO maybe replace region information in metadata if overwritten in formatting request
-        formatter.format(planetaryGrid,
-                temporalBinSource,
-                featureNames,
-                formatterConfig,
-                regionGeometry,
-                startTime,
-                endTime,
-                processingGraphMetadata);
     }
 
     private static class ProductConverter implements Converter<Product> {
@@ -162,24 +168,24 @@ public class L3Formatter {
         }
 
         @Override
-        public Class<? extends Product> getValueType() {
-            return Product.class;
-        }
+         public Class<? extends Product> getValueType() {
+             return Product.class;
+         }
 
-        @Override
-        public Product parse(String text) throws ConversionException {
-            Path path = new Path(text);
-            try {
-                return CalvalusProductIO.readProduct(path, conf, null);
-            } catch (IOException e) {
-                throw new ConversionException(e);
-            }
-        }
+         @Override
+         public Product parse(String text) throws ConversionException {
+             Path path = new Path(text);
+             try {
+                 return CalvalusProductIO.readProduct(path, conf, null);
+             } catch (IOException e) {
+                 throw new ConversionException(e);
+             }
+         }
 
-        @Override
-        public String format(Product value) {
-            throw new IllegalStateException();
-        }
-    }
+         @Override
+         public String format(Product value) {
+             throw new IllegalStateException();
+         }
+     }
 
 }

@@ -7,9 +7,10 @@ import org.esa.snap.binning.support.ObservationImpl;
 import org.esa.snap.binning.support.VectorImpl;
 import org.junit.Before;
 import org.junit.Test;
-import java.util.HashMap;
-import static org.junit.Assert.*;
-import static java.lang.Float.*;
+
+import static java.lang.Float.NaN;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 
 /**
  * TODO add API doc
@@ -156,7 +157,7 @@ public class AggregatorOnPercentileSetTest {
         return new ObservationImpl(0.0, 0.0, mjd, values);
     }
 
-    private static BinContext createCtx() {
+    public static BinContext createCtx() {
         return new TestBinContext();
     }
 
