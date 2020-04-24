@@ -14,17 +14,18 @@
         <hadoop.version>3.2.1-BC</hadoop.version>
         <calvalus.version>2.19-SNAPSHOT</calvalus.version>
         <bc-wps.version>1.2</bc-wps.version>
-        <snap.version>7.0.4-SNAPSHOT</snap.version>
-        <s1tbx.version>7.0.3-SNAPSHOT</s1tbx.version>
-        <s2tbx.version>7.0.1-SNAPSHOT</s2tbx.version>
-        <s3tbx.version>7.0.3-SNAPSHOT</s3tbx.version>
-        <seadas.reader.version>1.8</seadas.reader.version>
-        <probav.reader.version>2.1.0</probav.reader.version>
+        <snap.version>7.0.4cv-SNAPSHOT</snap.version>
+        <s1tbx.version>7.0.3cv-SNAPSHOT</s1tbx.version>
+        <s2tbx.version>7.0.1cv-SNAPSHOT</s2tbx.version>
+        <s3tbx.version>7.0.4cv-SNAPSHOT</s3tbx.version>
+        <seadas.reader.version>1.9cv-SNAPSHOT</seadas.reader.version>
+        <probav.reader.version>2.2.0cv-SNAPSHOT</probav.reader.version>
         <geo-inventory-version>0.6.1</geo-inventory-version>
         <geotools.version>17.1</geotools.version>
         <slf4j.version>1.7.21</slf4j.version>
         <ncsa.version>2.7.1</ncsa.version>
         <ncsaj.version>2.7</ncsaj.version>
+        <netcdf.version>5.0.0-beta6</netcdf.version>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     </properties>
 
@@ -303,6 +304,7 @@
             <dependency><groupId>ncsa.hdf</groupId><artifactId>jhdf4obj</artifactId><version>${ncsaj.version}</version></dependency>
             <dependency><groupId>ncsa.hdf</groupId><artifactId>jhdf5obj</artifactId><version>${ncsaj.version}</version></dependency>
 
+            <dependency><groupId>edu.ucar</groupId><artifactId>netcdfAll</artifactId><version>${netcdf.version}</version></dependency>
             <dependency><groupId>org.esa.s3tbx</groupId><artifactId>s3tbx-alos-reader</artifactId><version>${s3tbx.version}</version></dependency>
             <dependency><groupId>org.esa.s3tbx</groupId><artifactId>s3tbx-atsr-reader</artifactId><version>${s3tbx.version}</version></dependency>
             <dependency><groupId>org.esa.s3tbx</groupId><artifactId>s3tbx-avhrr-reader</artifactId><version>${s3tbx.version}</version></dependency>
@@ -443,6 +445,12 @@
                 <groupId>org.hsqldb</groupId>
                 <artifactId>hsqldb</artifactId>
                 <version>2.3.0</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.jpy</groupId>
+                <artifactId>jpy</artifactId>
+                <version>0.9.0</version>
             </dependency>
 
             <!--  Test -->

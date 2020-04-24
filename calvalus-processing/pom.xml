@@ -56,12 +56,14 @@
             <groupId>org.esa.snap</groupId>
             <artifactId>snap-gpf</artifactId>
         </dependency>
-        <!--
         <dependency>
             <groupId>org.esa.snap</groupId>
             <artifactId>snap-netcdf</artifactId>
         </dependency>
-        -->
+        <dependency>
+            <groupId>edu.ucar</groupId>
+            <artifactId>netcdfAll</artifactId>
+        </dependency>
         <dependency>
             <groupId>org.xeustechnologies</groupId>
             <artifactId>jtar</artifactId>
@@ -80,6 +82,10 @@
             <groupId>org.esa.s3tbx</groupId>
             <artifactId>s3tbx-landsat-reader</artifactId>
             <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.esa.s3tbx</groupId>
+            <artifactId>s3tbx-sentinel3-reader</artifactId>
         </dependency>
         <!--
         <dependency>

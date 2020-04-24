@@ -192,7 +192,7 @@ public class FirePixelReducer extends Reducer<LongWritable, RasterStackWritable,
     }
 
     private void prepareTargetProduct(String regionName, String timeCoverageStart, String timeCoverageEnd, String year, String month, String version) throws IOException, InvalidRangeException {
-        outputFilename = String.format("%s%02d01-C3S-L3S_FIRE-BA-OLCI-%s-f%s.nc",
+        outputFilename = String.format("%s%02d01-C3S-L3S_FIRE-BA-OLCI-%s-fv%s.nc",
                                        year, Integer.parseInt(month), regionName, version);
         outputFile = new FirePixelNcFactory().
                 createNcFile(outputFilename, version, timeCoverageStart, timeCoverageEnd, numRowsGlobal, continentalRectangle);
@@ -314,7 +314,7 @@ public class FirePixelReducer extends Reducer<LongWritable, RasterStackWritable,
     }
 
     private void writeLonBnds(NetcdfFileWriter ncFile, int continentalStartX, int continentalWidth) throws IOException, InvalidRangeException {
-        float halfPixelSize = (float) (360.0 / (numRowsGlobal * 2));
+        float halfPixelSize = (float) (360.0 / (numRowsGlobal * 2 * 2));
 
         Variable lonBnds = ncFile.findVariable("lon_bounds");
         double[] array = new double[continentalWidth * 2];
@@ -329,13 +329,13 @@ public class FirePixelReducer extends Reducer<LongWritable, RasterStackWritable,
     }
 
     private void writeLatBnds(NetcdfFileWriter ncFile, int continentalStartY, int continentalHeight) throws IOException, InvalidRangeException {
-        float halfPixelSize = (float) (180.0 / numRowsGlobal);
+        float halfPixelSize = (float) (180.0 / numRowsGlobal / 2);
 
         Variable latBnds = ncFile.findVariable("lat_bounds");
         double[] array = new double[continentalHeight * 2];
         for (int y = 0; y < continentalHeight; y++) {
-            array[2 * y] = planetaryGrid.getCenterLat(y + continentalStartY) - halfPixelSize;
-            array[2 * y + 1] = planetaryGrid.getCenterLat(y + continentalStartY) + halfPixelSize;
+            array[2 * y] = planetaryGrid.getCenterLat(y + continentalStartY) + halfPixelSize;
+            array[2 * y + 1] = planetaryGrid.getCenterLat(y + continentalStartY) - halfPixelSize;
         }
 
         Array values = Array.factory(DataType.DOUBLE, new int[]{continentalHeight, 2}, array);

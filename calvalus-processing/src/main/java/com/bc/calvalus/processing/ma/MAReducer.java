@@ -32,13 +32,14 @@ import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.NoSuchElementException;
 import java.util.logging.Logger;
 
 /**
  * Reads the records emitted by the MAMapper.
  * It is expected that each true 'record' key will only have one unique value.
- * Only 'header' keys ("#") will have multiple values containing all the same the attribute names.
- * This is why the reducer only writes the first value.
+ * Only 'header' keys ("#") will have multiple values containing (in most cases) all the same the attribute names.
+ * This is why the reducer only writes the first value and checks whether the other headers are equal.
  *
  * @author Norman Fomferra
  */
@@ -79,6 +80,9 @@ public class MAReducer extends Reducer<Text, RecordWritable, Text, RecordWritabl
         int goodRecordCount = 0;
         int totalRecordCount = 0;
         int exclusionIndex = -1;
+        String defaultHeader = null;
+        Map<String, RecordProcessor[]> headerMap = new HashMap<>();
+        Map<String, RecordProcessor[]> filenameMap = new HashMap<>();
 
         while (context.nextKey()) {
             final Text key = context.getCurrentKey();
@@ -86,14 +90,36 @@ public class MAReducer extends Reducer<Text, RecordWritable, Text, RecordWritabl
             if (iterator.hasNext()) {
 
                 final RecordWritable record = iterator.next();
-                context.write(key, record);
+                context.write(key, record);  // where is this written to?
 
-                if (key.equals(MAMapper.HEADER_KEY)) {
-                    List<Object> annotNames = Arrays.asList(record.getAnnotationValues());
-                    exclusionIndex = annotNames.indexOf(DefaultHeader.ANNOTATION_EXCLUSION_REASON);
-                    processHeaderRecord(record, recordProcessors);
+                if (key.toString().startsWith("#_")) {
+                    String thisHeader = Arrays.toString(record.getAttributeValues());
+                    if (thisHeader.equals(defaultHeader)) {
+                        // nothing to do
+                    } else if (defaultHeader == null) {
+                        defaultHeader = thisHeader;
+                        List<Object> annotNames = Arrays.asList(record.getAnnotationValues());
+                        exclusionIndex = annotNames.indexOf(DefaultHeader.ANNOTATION_EXCLUSION_REASON);
+                        processHeaderRecord(record, recordProcessors);
+                    } else {
+                        final String keyFilename = key.toString().substring(2);
+                        RecordProcessor[] processors = headerMap.get(thisHeader);
+                        if (processors == null) {
+                            processors = createRecordProcessors(keyFilename, context, recordProcessors);
+                            headerMap.put(thisHeader, processors);
+                            List<Object> annotNames = Arrays.asList(record.getAnnotationValues());
+                            exclusionIndex = annotNames.indexOf(DefaultHeader.ANNOTATION_EXCLUSION_REASON);
+                            processHeaderRecord(record, processors);
+                        }
+                        filenameMap.put(keyFilename, processors);
+                    }
                 } else {
-                    processDataRecord(key.toString(), record, recordProcessors);
+                    final String keyFilename = key.toString().substring(key.toString().indexOf('_')+1);
+                    RecordProcessor[] processors = filenameMap.get(keyFilename);
+                    if (processors == null) {
+                        processors = recordProcessors;
+                    }
+                    processDataRecord(key.toString(), record, processors);
                     totalRecordCount++;
                     if (exclusionIndex >= 0) {
                         String reason = (String) record.getAnnotationValues()[exclusionIndex];
@@ -112,6 +138,10 @@ public class MAReducer extends Reducer<Text, RecordWritable, Text, RecordWritabl
                 }
             }
         }
+        for (RecordProcessor[] processors : headerMap.values()) {
+             finalizeRecordProcessing(processors);
+        }
+
         Map<String, Integer> annotatedRecordCounts = new LinkedHashMap<String, Integer>();
         annotatedRecordCounts.put("Total", totalRecordCount);
         ArrayList<String> keyList = new ArrayList<String>(exclusionRecordCounts.keySet());
@@ -121,6 +151,16 @@ public class MAReducer extends Reducer<Text, RecordWritable, Text, RecordWritabl
         }
         annotatedRecordCounts.put("Good", goodRecordCount);
         return annotatedRecordCounts;
+    }
+
+    private RecordProcessor[] createRecordProcessors(String keyFilename, Context context, RecordProcessor[] recordProcessors) throws IOException, InterruptedException {
+        return new RecordProcessor[] {
+                new CsvRecordWriter(createWriter(context, "records-all.starting-with-" + keyFilename + ".txt"),
+                                    createWriter(context, "records-agg.starting-with-" + keyFilename + ".txt"),
+                                    createWriter(context, "annotated-records-all.starting-with-" + keyFilename + ".txt"),
+                                    createWriter(context, "annotated-records-agg.starting-with-" + keyFilename + ".txt")),
+                recordProcessors[1]
+        };
     }
 
     private void processHeaderRecord(RecordWritable record, RecordProcessor[] recordProcessors) throws IOException {
