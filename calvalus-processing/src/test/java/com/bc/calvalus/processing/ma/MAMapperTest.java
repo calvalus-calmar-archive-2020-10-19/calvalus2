@@ -168,7 +168,7 @@ public class MAMapperTest {
                 Object[] args = invocation.getArguments();
                 Text key = (Text) args[0];
                 RecordWritable value = (RecordWritable) args[1];
-                if (key.toString().endsWith("MER_RR__1P_TEST")) {
+                if (key.toString().matches("[0-9]+_MER_RR__1P_TEST$")) {
                     collectedMatchups.add(value);
                 }
                 return null;

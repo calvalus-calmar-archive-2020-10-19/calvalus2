@@ -26,6 +26,7 @@ import org.apache.hadoop.io.Text;
 import org.esa.snap.core.dataio.AbstractProductReader;
 import org.esa.snap.core.dataio.IllegalFileFormatException;
 import org.esa.snap.core.dataio.ProductReaderPlugIn;
+import org.esa.snap.core.dataio.dimap.DimapProductConstants;
 import org.esa.snap.core.dataio.dimap.DimapProductHelpers;
 import org.esa.snap.core.datamodel.*;
 import org.esa.snap.core.image.ImageManager;
@@ -105,7 +106,7 @@ public class StreamingProductReader extends AbstractProductReader {
         sliceHeight = Integer.parseInt(sliceHeightText.toString());
 
         dom = createDOM(metadata.get(new Text("dim")));
-        Product product = DimapProductHelpers.createProduct(dom);
+        Product product = DimapProductHelpers.createProduct(dom, DimapProductConstants.DIMAP_FORMAT_NAME, null);
         readTiepoints(product);
 
 
